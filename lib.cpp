@@ -1,5 +1,11 @@
 #include <cstdint>
 #include <iostream>
+#include "json.hpp"
+
+
+std::string outputFilename = "kokkosautothreads.json";
+nlohmann::json outputJson;
+
 extern "C" void kokkosp_begin_parallel_for(const char *name,
                                            const uint32_t devID,
                                            uint64_t *kID) {
