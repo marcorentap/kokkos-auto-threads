@@ -2,23 +2,29 @@
 #include <err.h>
 #include <limits.h>
 #include <link.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <Kokkos_Core.hpp>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <string>
+#include <thread>
+
+#include "json.hpp"
+#include "kokkosautothreads.hpp"
 
 std::string execPath;
 std::array<char *, 64> execArgv;
 std::array<char *, 64> execEnvp;
-std::string libName = "libkokkosautothreads.so";
 char execLibArg[512];
 int execArgc;
-
-void AddExecArg(std::string arg) {
-  memcpy(&execArgv.at(execArgc++), arg.c_str(), sizeof(char *));
-}
+nlohmann::json rootJson;
+std::ofstream outputFile;
+std::ifstream localOutput;
+nlohmann::json localJson;
 
 std::string GetLibFullPath() {
   std::string fullpath;
@@ -48,9 +54,24 @@ int main(int argc, char *argv[]) {
   memcpy(&execArgv, &argv[1], sizeof(char *) * execArgc);
   std::snprintf(execLibArg, sizeof(execLibArg), "--kokkos-tools-libs=%s",
                 GetLibFullPath().c_str());
-  execArgv[execArgc++] = (char*) &execLibArg;
+  execArgv[execArgc++] = (char *)&execLibArg;
 
-  execvpe(execPath.c_str(), execArgv.data(), environ);
+  for (int i = 0; i < 6; i++) {
+    if (fork() == 0) {
+      execvpe(execPath.c_str(), execArgv.data(), environ);
+      std::exit(0);
+    } else {
+      wait(NULL);
+      localOutput.open(localOutputFilename);
+      std::cout << "local output: " << localOutput.rdbuf() << std::endl;
+      std::cout.flush();
+      // localJson = nlohmann::json::parse(localOutput);
+      // rootJson.push_back({{"run_id", 1}, {"run_log", localJson}});
+    }
+  }
+
+  outputFile.open(outputFilename);
+  outputFile << rootJson << std::endl;
 
   return 0;
 }
