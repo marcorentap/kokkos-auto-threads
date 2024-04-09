@@ -9,7 +9,7 @@
 #include <iostream>
 #include <string>
 
-std::string execPathname;
+std::string execPath;
 std::array<char *, 64> execArgv;
 std::array<char *, 64> execEnvp;
 std::string libName = "libkokkosautothreads.so";
@@ -38,11 +38,11 @@ int main(int argc, char *argv[]) {
   }
 
   memcpy(&execArgv, &argv[1], sizeof(char *) * (argc - 1));
-  execPathname = argv[1];
+  execPath = argv[1];
 
   std::cout << "full lib path is " << GetLibFullPath() << std::endl;
 
-  execvpe(execPathname.c_str(), execArgv.data(), environ);
+  execvpe(execPath.c_str(), execArgv.data(), environ);
 
   return 0;
 }
