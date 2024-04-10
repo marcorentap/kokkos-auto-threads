@@ -1,5 +1,7 @@
 #ifndef KOKKOSAUTOTHREADS_HPP
 #define KOKKOSAUTOTHREADS_HPP
+#include <sqlite3.h>
+
 #include <array>
 #include <fstream>
 #include <string>
@@ -12,6 +14,7 @@ static std::string progLogName = "kokkosautothreads.tmp.json";
 static std::string logName = "kokkosautothreads.json";
 static std::string libName = "libkokkosautothreads.so";
 static std::string summaryName = "kokkosautothreads.summary.json";
+static std::string dbName = "kokkosautothreads.db";
 
 class Executor {
   using json = nlohmann::json;
@@ -44,8 +47,13 @@ class Executor {
 class Analyzer {
   using json = nlohmann::json;
 
+ private:
+  json data;
+
  public:
-  json Summarize(json data);
+  Analyzer(json data);
+  json Summarize();
+  void ExportDB();
 };
 
 }  // namespace KokkosAutoThreads

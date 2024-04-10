@@ -13,10 +13,13 @@ int main(int argc, char *argv[]) {
   }
 
   auto exec = KokkosAutoThreads::Executor(argc, argv);
-  auto analyzer = KokkosAutoThreads::Analyzer();
 
   auto result = exec.Exec(10);
-  auto summary = analyzer.Summarize(result);
+  auto analyzer = KokkosAutoThreads::Analyzer(result);
+  auto summary = analyzer.Summarize();
   std::ofstream(KokkosAutoThreads::summaryName) << summary.dump(2);
+  std::cout << "Exporting database..." << std::endl;
+  analyzer.ExportDB();
+
   return 0;
 }

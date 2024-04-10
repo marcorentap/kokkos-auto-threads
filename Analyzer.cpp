@@ -1,3 +1,6 @@
+#include <sqlite3.h>
+
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <unordered_map>
@@ -7,7 +10,51 @@
 using KokkosAutoThreads::Analyzer;
 using nlohmann::json;
 
-json Analyzer::Summarize(json data) {
+Analyzer::Analyzer(json data) { this->data = data; }
+
+void Analyzer::ExportDB() {
+  sqlite3 *db;
+  sqlite3_open(dbName.c_str(), &db);
+  auto createTableQuery =
+      "CREATE TABLE results ("
+      "run_id int,"
+      "num_threads int,"
+      "hook_type varchar(64),"
+      "kernel_id int,"
+      "kernel_name varchar(64),"
+      "exec_time int"
+      ")";
+
+  sqlite3_exec(db, createTableQuery, NULL, NULL, NULL);
+
+  for (auto &run : data) {
+    for (auto &threadRun : run["run_log"]) {
+      for (auto &kernelLog : threadRun["run_log"]) {
+        if (kernelLog["hook_type"] == "library") {
+          continue;
+        }
+
+        char resultQuery[512];
+
+        int runId = run["run_id"];
+        int numThreads = threadRun["num_threads"];
+        std::string hookType = kernelLog["hook_type"];
+        int kernelId = kernelLog["kernel_id"];
+        std::string kernelName = kernelLog["kernel_name"];
+        int execTime = kernelLog["exec_time"];
+
+        std::snprintf(resultQuery, sizeof(resultQuery),
+                      "INSERT INTO results VALUES"
+                      "(%d, %d, '%s', %d, '%s', %d)",
+                      runId, numThreads, hookType.c_str(), kernelId,
+                      kernelName.c_str(), execTime);
+        sqlite3_exec(db, resultQuery, NULL, NULL, NULL);
+      }
+    }
+  }
+}
+
+json Analyzer::Summarize() {
   json summary;
   // kID -> (kernel name, best num_threads, best exec_time)
   using resultType = std::tuple<std::string, uint64_t, uint64_t>;
