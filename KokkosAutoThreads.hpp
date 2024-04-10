@@ -11,6 +11,7 @@ namespace KokkosAutoThreads {
 static std::string progLogName = "kokkosautothreads.tmp.json";
 static std::string logName = "kokkosautothreads.json";
 static std::string libName = "libkokkosautothreads.so";
+static std::string summaryName = "kokkosautothreads.summary.json";
 
 class Executor {
   using json = nlohmann::json;

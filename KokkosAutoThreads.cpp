@@ -1,7 +1,10 @@
+#include "KokkosAutoThreads.hpp"
+
 #include <err.h>
+
+#include <fstream>
 #include <iostream>
 
-#include "KokkosAutoThreads.hpp"
 #include "json.hpp"
 
 int main(int argc, char *argv[]) {
@@ -10,9 +13,10 @@ int main(int argc, char *argv[]) {
   }
 
   auto exec = KokkosAutoThreads::Executor(argc, argv);
-  auto j = exec.Exec(10);
   auto analyzer = KokkosAutoThreads::Analyzer();
-  auto a = analyzer.Summarize(j);
-  std::cout << a.dump(2) << std::endl;
+
+  auto result = exec.Exec(10);
+  auto summary = analyzer.Summarize(result);
+  std::ofstream(KokkosAutoThreads::summaryName) << summary.dump(2);
   return 0;
 }
