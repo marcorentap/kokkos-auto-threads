@@ -29,7 +29,7 @@ extern "C" void kokkosp_init_library(const int loadSeq,
 
 extern "C" void kokkosp_finalize_library() {
   wholeTock = cppclock::now();
-  auto timeDiff = duration_cast<time_precision>(tock - tick).count();
+  auto timeDiff = duration_cast<time_precision>(wholeTock - wholeTick).count();
   outputJson.push_back({{"hook_type", "library"}, {"exec_time", timeDiff}});
   outputFile << outputJson << std::endl;
 }
