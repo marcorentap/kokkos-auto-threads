@@ -14,7 +14,6 @@
 #include <thread>
 
 #include "json.hpp"
-#include "kokkosautothreads.hpp"
 
 std::string execPath;
 std::array<char *, 64> execArgv;
@@ -59,21 +58,24 @@ int main(int argc, char *argv[]) {
                 GetLibFullPath().c_str());
   execArgv[execArgc++] = (char *)&execLibArg;
 
-  for (int i = 0; i < 10; i++) {
-    if (fork() == 0) {
-      int ret = execvpe(execPath.c_str(), execArgv.data(), environ);
-      if (ret < 0)
-        err(EXIT_FAILURE, "Cannot execute %s", execPath.c_str());
-    } else {
-      int wstatus;
-      wait(&wstatus);
-      if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EXIT_FAILURE)
-        exit(EXIT_FAILURE);
-      localOutput.open(localOutputFilename);
-      localJson = nlohmann::json::parse(localOutput);
-      rootJson.push_back({{"run_id", i}, {"run_log", localJson}});
-      localOutput.close();
+  for (int nThreads = 0; nThreads < 16; nThreads++) {
+    nlohmann::json perThreadJson;
+    for (int run = 0; run < 10; run++) {
+      if (fork() == 0) {
+        int ret = execvpe(execPath.c_str(), execArgv.data(), environ);
+        if (ret < 0) err(EXIT_FAILURE, "Cannot execute %s", execPath.c_str());
+      } else {
+        int wstatus;
+        wait(&wstatus);
+        if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EXIT_FAILURE)
+          exit(EXIT_FAILURE);
+        localOutput.open(localOutputFilename);
+        localJson = nlohmann::json::parse(localOutput);
+        localOutput.close();
+        perThreadJson.push_back({{"run_id", run}, {"run_log", localJson}});
+      }
     }
+    rootJson.push_back({{"num_threads", nThreads}, {"run_log", perThreadJson}});
   }
 
   outputFile.open(outputFilename);
