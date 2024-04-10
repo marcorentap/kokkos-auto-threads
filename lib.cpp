@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 
 #include "json.hpp"
 #include "kokkosautothreads.hpp"
@@ -16,17 +17,18 @@ time_point tick, tock;
 std::unordered_map<int, std::string> kernelNames;
 uint64_t kernelCount = 0;
 
+std::string outputFilename = "kokkosautothreads.local.json";
+
 extern "C" void kokkosp_init_library(const int loadSeq,
                                      const uint64_t interfaceVer,
                                      const uint32_t devInfoCount,
                                      void *deviceInfo) {
-  outputFile.open(localOutputFilename, std::ios_base::trunc);
-  outputFile << "test";
+  outputFile.open(outputFilename, std::ios_base::trunc);
 }
 
 extern "C" void kokkosp_finalize_library() {
-  outputFile << outputJson;
-  outputFile.flush();
+  auto time = cppclock::now().time_since_epoch().count();
+  outputFile << outputJson << std::endl;
 }
 
 extern "C" void kokkosp_begin_parallel_for(const char *name,
@@ -42,7 +44,7 @@ extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
   auto timeDiff = duration_cast<time_precision>(tock - tick).count();
   outputJson.push_back({{"kernel_id", kID},
                         {"kernel_name", kernelNames.at(kID)},
-                        {"time", timeDiff}});
+                        {"exec_time", timeDiff}});
 }
 
 extern "C" void kokkosp_begin_parallel_scan(const char *name,

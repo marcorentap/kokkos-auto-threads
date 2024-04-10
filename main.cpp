@@ -25,6 +25,9 @@ nlohmann::json rootJson;
 std::ofstream outputFile;
 std::ifstream localOutput;
 nlohmann::json localJson;
+std::string localOutputFilename = "kokkosautothreads.local.json";
+std::string outputFilename = "kokkosautothreads.json";
+std::string libName = "libkokkosautothreads.so";
 
 std::string GetLibFullPath() {
   std::string fullpath;
@@ -34,12 +37,12 @@ std::string GetLibFullPath() {
 
   handle = dlopen(libName.c_str(), RTLD_LAZY);
   if (handle == NULL) {
-    err(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
+    errx(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
   }
 
   ret = dlinfo(handle, RTLD_DI_LINKMAP, &linkMap);
   if (ret < 0) {
-    err(EXIT_FAILURE, "Cannot dlinfo library %s", libName.c_str());
+    errx(EXIT_FAILURE, "Cannot dlinfo library %s", libName.c_str());
   }
   return linkMap->l_name;
 }
@@ -56,17 +59,20 @@ int main(int argc, char *argv[]) {
                 GetLibFullPath().c_str());
   execArgv[execArgc++] = (char *)&execLibArg;
 
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 10; i++) {
     if (fork() == 0) {
-      execvpe(execPath.c_str(), execArgv.data(), environ);
-      std::exit(0);
+      int ret = execvpe(execPath.c_str(), execArgv.data(), environ);
+      if (ret < 0)
+        err(EXIT_FAILURE, "Cannot execute %s", execPath.c_str());
     } else {
-      wait(NULL);
+      int wstatus;
+      wait(&wstatus);
+      if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EXIT_FAILURE)
+        exit(EXIT_FAILURE);
       localOutput.open(localOutputFilename);
-      std::cout << "local output: " << localOutput.rdbuf() << std::endl;
-      std::cout.flush();
-      // localJson = nlohmann::json::parse(localOutput);
-      // rootJson.push_back({{"run_id", 1}, {"run_log", localJson}});
+      localJson = nlohmann::json::parse(localOutput);
+      rootJson.push_back({{"run_id", i}, {"run_log", localJson}});
+      localOutput.close();
     }
   }
 
