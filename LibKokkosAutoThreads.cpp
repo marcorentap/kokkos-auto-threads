@@ -17,6 +17,7 @@ auto outputJson = json();
 
 time_point kernelTick, kernelTock, libTick, libTock;
 auto kernelNames = std::unordered_map<int, std::string>();
+auto kernelCounts = std::unordered_map<std::string, size_t>();
 auto kernelCount = 0;
 
 extern "C" void kokkosp_init_library(const int loadSeq,
@@ -39,11 +40,20 @@ extern "C" void kokkosp_begin_parallel_for(const char *name,
                                            const uint32_t devID,
                                            uint64_t *kID) {
   kernelTick = cppclock::now();
-  kernelNames[kernelCount] = name;
+  if (kernelCounts.find(name) == kernelCounts.end()) {
+    kernelCounts[name] = 1;
+  } else {
+    kernelCounts[name]++;
+  }
+
+  if (kernelCounts[name] > 10) return;
+
   *kID = kernelCount++;
+  kernelNames[*kID] = name;
 }
 
 extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
+  if (kernelCounts[kernelNames[kID]] > 10) return;
   kernelTock = cppclock::now();
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
@@ -53,14 +63,23 @@ extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
                         {"exec_time", execTime}});
 }
 extern "C" void kokkosp_begin_parallel_scan(const char *name,
-                                           const uint32_t devID,
-                                           uint64_t *kID) {
+                                            const uint32_t devID,
+                                            uint64_t *kID) {
+  if (kernelCounts.find(name) == kernelCounts.end()) {
+    kernelCounts[name] = 1;
+  } else {
+    kernelCounts[name]++;
+  }
+
+  if (kernelCounts[name] > 10) return;
+
   kernelTick = cppclock::now();
-  kernelNames[kernelCount] = name;
   *kID = kernelCount++;
+  kernelNames[*kID] = name;
 }
 
 extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
+  if (kernelCounts[kernelNames[kID]] > 10) return;
   kernelTock = cppclock::now();
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
@@ -71,14 +90,23 @@ extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
 }
 
 extern "C" void kokkosp_begin_parallel_reduce(const char *name,
-                                           const uint32_t devID,
-                                           uint64_t *kID) {
+                                              const uint32_t devID,
+                                              uint64_t *kID) {
+  if (kernelCounts.find(name) == kernelCounts.end()) {
+    kernelCounts[name] = 1;
+  } else {
+    kernelCounts[name]++;
+  }
+
+  if (kernelCounts[name] > 10) return;
+
   kernelTick = cppclock::now();
-  kernelNames[kernelCount] = name;
   *kID = kernelCount++;
+  kernelNames[*kID] = name;
 }
 
 extern "C" void kokkosp_end_parallel_reduce(const uint64_t kID) {
+  if (kernelCounts[kernelNames[kID]] > 10) return;
   kernelTock = cppclock::now();
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
