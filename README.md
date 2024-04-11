@@ -30,18 +30,18 @@ To run a Kokkos program with kokkosautothreads, do
 kokkosautothreads ./mykokkosapplication arg1, arg2, ...
 ```
 
-kokkosautothreads will execute the programs in 10 runs, with each run executing
---kokkos-auto-threads from 1 to nproc.
+kokkosautothreads will execute the programs in 10 runs, with each run executing with
+--kokkos-num-threads set from 1 to nproc.
 
 It outputs three files:
 
-- kokkosautothreads.json is the full log
-- kokkosautothreads.summary.json shows best number of threads and execution time for each thread
-- kokkosautothreads.db full log in database form
+- `kokkosautothreads.json` is the full log
+- `kokkosautothreads.summary.json` shows best number of threads and execution time for each thread
+- `kokkosautothreads.db` is full log in database form
 
 ## Log database
 
-kokkosautothreads exports a table of run_id, `num_threads`, `hook_type`, `kernel_id`, `kernel_name`, `exec_time` as an
+kokkosautothreads exports a table of `run_id`, `num_threads`, `hook_type`, `kernel_id`, `kernel_name`, `exec_time` as an
 sqlite3 database. For example, to view the average kernel execution times
 
 ```
