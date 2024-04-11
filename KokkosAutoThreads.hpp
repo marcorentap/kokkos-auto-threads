@@ -20,7 +20,7 @@ class Executor {
   using json = nlohmann::json;
 
  private:
-  static constexpr int EXEC_ARG_LEN = 64;
+  static constexpr int EXEC_ARG_LEN = 1024;
 
   enum execArgsType {
     TOOLS_LIBS,
@@ -32,7 +32,7 @@ class Executor {
   std::fstream logFile;
   std::string execPath, libPath;
   // --kokkos-tools-libs=, --kokkos-num-threads=
-  std::array<char[64], 2> execArgs;
+  std::array<char[EXEC_ARG_LEN], 2> execArgs;
 
   std::string GetFullLibPath();
   json ExecProgram(int numThreads);
