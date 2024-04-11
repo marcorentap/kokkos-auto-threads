@@ -47,8 +47,8 @@ sqlite3 database. For example, to view the average kernel execution times
 ```
 sqlite3 kokkosautothreads.db
 
-sqlite> .headers ON
-sqlite> select *, avg(exec_time) from results group by kernel_name;
+sqlite> .mode column
+sqlite> select kernel_name, avg(exec_time) from results group by kernel_name;
 ```
 
 will give an output like
