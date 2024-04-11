@@ -1,5 +1,6 @@
 #include <dlfcn.h>
 #include <err.h>
+#include <filesystem>
 #include <link.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -89,12 +90,13 @@ json Exec::Exec(int numRuns) { return Exec(numRuns, nproc); }
 json Exec::Exec(int numRuns, int maxThreads) {
   json rootJson;
   auto fileMode = std::ios_base::in | std::ios_base::out | std::ios_base::trunc;
-  logFile.open(logName, fileMode);
   for (int run = 0; run < numRuns; run++) {
     auto runJson = ExecRun(maxThreads);
     rootJson.push_back({{"run_id", run}, {"run_log", runJson}});
     // Write to file on every run
+    logFile.open(logName,fileMode);
     logFile << rootJson.dump(2);
+    logFile.close();
   }
 
   return rootJson;
