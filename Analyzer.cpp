@@ -14,8 +14,10 @@ Analyzer::Analyzer(json data) { this->data = data; }
 
 void Analyzer::ExportDB() {
   sqlite3 *db;
+  // Hacky, reset database
   sqlite3_open(dbName.c_str(), &db);
   auto createTableQuery =
+      "DROP TABLE IF EXISTS results;"
       "CREATE TABLE results ("
       "run_id int,"
       "num_threads int,"
@@ -23,7 +25,7 @@ void Analyzer::ExportDB() {
       "kernel_id int,"
       "kernel_name varchar(64),"
       "exec_time int"
-      ")";
+      ");";
 
   sqlite3_exec(db, createTableQuery, NULL, NULL, NULL);
 
