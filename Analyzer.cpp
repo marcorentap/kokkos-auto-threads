@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <unordered_map>
 
 #include "KokkosAutoThreads.hpp"
@@ -24,35 +25,52 @@ void Analyzer::ExportDB() {
       "hook_type varchar(64),"
       "kernel_id int,"
       "kernel_name varchar(64),"
-      "exec_time int"
+      "exec_time int,"
+      "hw_cache_misses int,"
+      "hw_cache_references int"
       ");";
 
   sqlite3_exec(db, createTableQuery, NULL, NULL, NULL);
 
   for (auto &run : data) {
+    std::string wholeQuery = "";
     for (auto &threadRun : run["run_log"]) {
+      std::string runQuery = "INSERT INTO results VALUES ";
       for (auto &kernelLog : threadRun["run_log"]) {
-        if (kernelLog["hook_type"] == "library") {
-          continue;
-        }
+        char kernelTuple[4096] = {0};
 
-        char resultQuery[512];
-
+        // Kernel and application has these
         int runId = run["run_id"];
         int numThreads = threadRun["num_threads"];
         std::string hookType = kernelLog["hook_type"];
+        int execTime = kernelLog["exec_time"];
+        int hwCacheMisses = kernelLog["hw_cache_misses"];
+        int hwCacheRefs = kernelLog["hw_cache_references"];
+
+        if (kernelLog["hook_type"] == "library") {
+          std::snprintf(kernelTuple, sizeof(kernelTuple),
+                        "(%d, %d, '%s', %s, %s, %d, %d, %d),", runId,
+                        numThreads, hookType.c_str(), "NULL", "NULL", execTime,
+                        hwCacheMisses, hwCacheRefs);
+          runQuery.append(kernelTuple);
+          continue;
+        }
+
+        // Only kernel has these
         int kernelId = kernelLog["kernel_id"];
         std::string kernelName = kernelLog["kernel_name"];
-        int execTime = kernelLog["exec_time"];
 
-        std::snprintf(resultQuery, sizeof(resultQuery),
-                      "INSERT INTO results VALUES"
-                      "(%d, %d, '%s', %d, '%s', %d)",
-                      runId, numThreads, hookType.c_str(), kernelId,
-                      kernelName.c_str(), execTime);
-        sqlite3_exec(db, resultQuery, NULL, NULL, NULL);
+        std::snprintf(kernelTuple, sizeof(kernelTuple),
+                      "(%d, %d, '%s', %d, '%s', %d, %d, %d),", runId,
+                      numThreads, hookType.c_str(), kernelId,
+                      kernelName.c_str(), execTime, hwCacheMisses, hwCacheRefs);
+        runQuery.append(kernelTuple);
       }
+      // Replace trailing comma with semicolon
+      runQuery[runQuery.length() - 1] = ';';
+      wholeQuery.append(runQuery);
     }
+    sqlite3_exec(db, wholeQuery.c_str(), NULL, NULL, NULL);
   }
 }
 
