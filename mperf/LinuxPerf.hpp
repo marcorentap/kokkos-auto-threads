@@ -314,6 +314,9 @@ class Measure : public ::MPerf::Measure {
  public:
   void PerfEventOpen(uint32_t type, uint64_t config);
   void PerfEventOpen(std::string label, uint32_t type, uint64_t config);
+  int fdCount() {
+      return fds.size();
+  }
 
   ~Measure() {
     for (auto &fd : fds) {
