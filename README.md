@@ -42,42 +42,66 @@ It outputs three files:
 ## Log database
 
 kokkosautothreads exports a table of `run_id`, `num_threads`, `hook_type`, `kernel_id`, `kernel_name`, `exec_time` as an
-sqlite3 database. For example, to view the average kernel execution times
+sqlite3 database. For example, to view the average execution time for each kernel and number of threads in ascending order,
 
 ```
 sqlite3 kokkosautothreads.db
 
 sqlite> .mode column
-sqlite> select kernel_name, avg(exec_time) from results group by kernel_name;
+sqlite> select kernel_name, num_threads, avg(exec_time) from results group by kernel_name, num_threads order by kernel_name, avg(exec_time);
 ```
 
-will give an output like
+will output something like
 
 ```
-kernel_name                                                          avg(exec_time)
--------------------------------------------------------------------  ----------------
-10Dotproduct                                                         108933.652138158
-12LeveledSweep                                                       103917.454396056
-13fillColorsInd                                                      141139.584016393
-13fillColorsMap                                                      187259.381001021
-18RestrictionFunctor                                                 105490.488505747
-19ProlongationFunctor                                                103185.157764996
-7mapScan                                                             1104251.99795082
-8AlphaOne                                                            106581.641975309
-Kokkos::View::initialization [CrsMatrix: GlobalIndexMap] via memset  123041.626283368
-Kokkos::View::initialization [CrsMatrix: LocalIndexMap] via memset   61037.0737704918
-Kokkos::View::initialization [CrsMatrix: RowMap] via memset          7111.15195071869
-Kokkos::View::initialization [CrsMatrix: RowMap_mirror] via memset   7145.73565573771
-Kokkos::View::initialization [CrsMatrix: Values] via memset          129807.973360656
-Kokkos::View::initialization [Matrix Diagonal] via memset            4280.65637860082
-Kokkos::View::initialization [Vector: Values] via memset             6072.57095709571
-Kokkos::View::initialization [b_lev_ind] via memset                  4377.07581967213
-Kokkos::View::initialization [b_lev_map] via memset                  2852.26899383984
-Kokkos::View::initialization [b_row_level] via memset                4645.38603696099
-Kokkos::View::initialization [f2cOperator] via memset                4385.15432098765
-Kokkos::View::initialization [f_lev_ind] via memset                  4626.5387755102
-Kokkos::View::initialization [f_lev_map] via memset                  3263.55918367347
-Kokkos::View::initialization [f_row_level] via memset                5072.07755102041
-Kokkos::View::initialization [z] via memset                          6727.3396381579
-KokkosSparse::spmv<NoTranspose,Static>                               168447.176229508
+kernel_name                                       num_threads  avg(exec_time)
+------------------------------------------------  -----------  --------------
+Kokkos::View::initialization [A View] via memset  3            8467.3
+Kokkos::View::initialization [A View] via memset  8            8568.8
+Kokkos::View::initialization [A View] via memset  7            8587.4
+Kokkos::View::initialization [A View] via memset  4            8615.4
+Kokkos::View::initialization [A View] via memset  6            8789.3
+Kokkos::View::initialization [A View] via memset  2            9058.8
+Kokkos::View::initialization [A View] via memset  12           9396.3
+Kokkos::View::initialization [A View] via memset  16           9401.4
+Kokkos::View::initialization [A View] via memset  15           9409.6
+Kokkos::View::initialization [A View] via memset  13           9436.6
+Kokkos::View::initialization [A View] via memset  11           9448.4
+Kokkos::View::initialization [A View] via memset  14           9526.3
+Kokkos::View::initialization [A View] via memset  10           9670.8
+Kokkos::View::initialization [A View] via memset  5            9718.3
+Kokkos::View::initialization [A View] via memset  9            10772.6
+Kokkos::View::initialization [A View] via memset  1            11186.3
+Print Values                                      3            75546.7
+Print Values                                      5            91282.4
+Print Values                                      6            92921.2
+Print Values                                      4            93094.5
+Print Values                                      7            93497.3
+Print Values                                      9            112818.4
+Print Values                                      8            116681.4
+Print Values                                      10           133743.1
+Print Values                                      12           140133.5
+Print Values                                      11           147486.0
+Print Values                                      13           159228.3
+Print Values                                      14           187126.3
+Print Values                                      1            311922.2
+Print Values                                      2            372291.3
+Print Values                                      15           579788.0
+Print Values                                      16           2527508.4
+Set Values                                        1            6095.48
+Set Values                                        6            9440.46
+Set Values                                        2            9788.49
+Set Values                                        8            11388.18
+Set Values                                        10           11425.96
+Set Values                                        9            12384.86
+Set Values                                        3            12558.08
+Set Values                                        4            12895.6
+Set Values                                        7            13083.7
+Set Values                                        14           13218.94
+Set Values                                        11           13219.22
+Set Values                                        5            13640.99
+Set Values                                        13           14195.39
+Set Values                                        12           14475.56
+Set Values                                        15           14626.58
+Set Values                                        16           172966.12
 ```
