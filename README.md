@@ -41,67 +41,75 @@ It outputs three files:
 
 ## Log database
 
-kokkosautothreads exports a table of `run_id`, `num_threads`, `hook_type`, `kernel_id`, `kernel_name`, `exec_time` as an
-sqlite3 database. For example, to view the average execution time for each kernel and number of threads in ascending order,
+kokkosautothreads exports the execution log as an sqlite3 table:
+```
+┌─────┬─────────────────────┬─────────────┬─────────┬────────────┬────┐
+│ cid │        name         │    type     │ notnull │ dflt_value │ pk │
+├─────┼─────────────────────┼─────────────┼─────────┼────────────┼────┤
+│ 0   │ run_id              │ INT         │ 0       │            │ 0  │
+│ 1   │ num_threads         │ INT         │ 0       │            │ 0  │
+│ 2   │ hook_type           │ varchar(64) │ 0       │            │ 0  │
+│ 3   │ kernel_id           │ INT         │ 0       │            │ 0  │
+│ 4   │ kernel_name         │ varchar(64) │ 0       │            │ 0  │
+│ 5   │ exec_time           │ INT         │ 0       │            │ 0  │
+│ 6   │ hw_cache_misses     │ INT         │ 0       │            │ 0  │
+│ 7   │ hw_cache_references │ INT         │ 0       │            │ 0  │
+│ 8   │ sw_page_faults      │ INT         │ 0       │            │ 0  │
+│ 9   │ sw_page_faults_min  │ INT         │ 0       │            │ 0  │
+│ 10  │ sw_page_faults_maj  │ INT         │ 0       │            │ 0  │
+└─────┴─────────────────────┴─────────────┴─────────┴────────────┴────┘
+```
+
+For example, to view the average execution time for each kernel and number of threads in ascending order,
 
 ```
 sqlite3 kokkosautothreads.db
 
-sqlite> .mode column
-sqlite> select kernel_name, num_threads, avg(exec_time) from results group by kernel_name, num_threads order by kernel_name, avg(exec_time);
+sqlite> .mode box
+sqlite> select kernel_name, num_threads, avg(exec_time) from results where hook_type is not 'library' group by kernel_name, num_threads order by kernel_name, avg(exec_time);
 ```
 
 will output something like
 
 ```
-kernel_name                                       num_threads  avg(exec_time)
-------------------------------------------------  -----------  --------------
-Kokkos::View::initialization [A View] via memset  3            8467.3
-Kokkos::View::initialization [A View] via memset  8            8568.8
-Kokkos::View::initialization [A View] via memset  7            8587.4
-Kokkos::View::initialization [A View] via memset  4            8615.4
-Kokkos::View::initialization [A View] via memset  6            8789.3
-Kokkos::View::initialization [A View] via memset  2            9058.8
-Kokkos::View::initialization [A View] via memset  12           9396.3
-Kokkos::View::initialization [A View] via memset  16           9401.4
-Kokkos::View::initialization [A View] via memset  15           9409.6
-Kokkos::View::initialization [A View] via memset  13           9436.6
-Kokkos::View::initialization [A View] via memset  11           9448.4
-Kokkos::View::initialization [A View] via memset  14           9526.3
-Kokkos::View::initialization [A View] via memset  10           9670.8
-Kokkos::View::initialization [A View] via memset  5            9718.3
-Kokkos::View::initialization [A View] via memset  9            10772.6
-Kokkos::View::initialization [A View] via memset  1            11186.3
-Print Values                                      3            75546.7
-Print Values                                      5            91282.4
-Print Values                                      6            92921.2
-Print Values                                      4            93094.5
-Print Values                                      7            93497.3
-Print Values                                      9            112818.4
-Print Values                                      8            116681.4
-Print Values                                      10           133743.1
-Print Values                                      12           140133.5
-Print Values                                      11           147486.0
-Print Values                                      13           159228.3
-Print Values                                      14           187126.3
-Print Values                                      1            311922.2
-Print Values                                      2            372291.3
-Print Values                                      15           579788.0
-Print Values                                      16           2527508.4
-Set Values                                        1            6095.48
-Set Values                                        6            9440.46
-Set Values                                        2            9788.49
-Set Values                                        8            11388.18
-Set Values                                        10           11425.96
-Set Values                                        9            12384.86
-Set Values                                        3            12558.08
-Set Values                                        4            12895.6
-Set Values                                        7            13083.7
-Set Values                                        14           13218.94
-Set Values                                        11           13219.22
-Set Values                                        5            13640.99
-Set Values                                        13           14195.39
-Set Values                                        12           14475.56
-Set Values                                        15           14626.58
-Set Values                                        16           172966.12
+┌──────────────────────────────────────────────────┬─────────────┬────────────────┐
+│                   kernel_name                    │ num_threads │ avg(exec_time) │
+├──────────────────────────────────────────────────┼─────────────┼────────────────┤
+│ Kokkos::View::initialization [A View] via memset │ 2           │ 13558.8        │
+│ Kokkos::View::initialization [A View] via memset │ 10          │ 13979.8        │
+│ Kokkos::View::initialization [A View] via memset │ 3           │ 14004.7        │
+│ Kokkos::View::initialization [A View] via memset │ 5           │ 14252.1        │
+│ Kokkos::View::initialization [A View] via memset │ 7           │ 14402.9        │
+│ Kokkos::View::initialization [A View] via memset │ 9           │ 14859.8        │
+│ Kokkos::View::initialization [A View] via memset │ 4           │ 15058.4        │
+│ Kokkos::View::initialization [A View] via memset │ 8           │ 15352.3        │
+│ Kokkos::View::initialization [A View] via memset │ 11          │ 15515.8        │
+│ Kokkos::View::initialization [A View] via memset │ 12          │ 15836.9        │
+│ Kokkos::View::initialization [A View] via memset │ 6           │ 16168.7        │
+│ Kokkos::View::initialization [A View] via memset │ 1           │ 19494.9        │
+│ Z4mainEUlRKiE0_                                  │ 2           │ 31937.8        │
+│ Z4mainEUlRKiE0_                                  │ 3           │ 36048.2        │
+│ Z4mainEUlRKiE0_                                  │ 4           │ 49801.5        │
+│ Z4mainEUlRKiE0_                                  │ 5           │ 59003.1        │
+│ Z4mainEUlRKiE0_                                  │ 6           │ 103386.6       │
+│ Z4mainEUlRKiE0_                                  │ 7           │ 132863.9       │
+│ Z4mainEUlRKiE0_                                  │ 8           │ 160474.9       │
+│ Z4mainEUlRKiE0_                                  │ 9           │ 266454.2       │
+│ Z4mainEUlRKiE0_                                  │ 10          │ 299206.4       │
+│ Z4mainEUlRKiE0_                                  │ 1           │ 385793.7       │
+│ Z4mainEUlRKiE0_                                  │ 11          │ 428798.6       │
+│ Z4mainEUlRKiE0_                                  │ 12          │ 752137.8       │
+│ Z4mainEUlRKiE_                                   │ 2           │ 8752.12        │
+│ Z4mainEUlRKiE_                                   │ 3           │ 9396.05        │
+│ Z4mainEUlRKiE_                                   │ 4           │ 9670.57        │
+│ Z4mainEUlRKiE_                                   │ 6           │ 9852.78        │
+│ Z4mainEUlRKiE_                                   │ 5           │ 10338.57       │
+│ Z4mainEUlRKiE_                                   │ 7           │ 10700.67       │
+│ Z4mainEUlRKiE_                                   │ 8           │ 10886.52       │
+│ Z4mainEUlRKiE_                                   │ 9           │ 11845.76       │
+│ Z4mainEUlRKiE_                                   │ 1           │ 12246.39       │
+│ Z4mainEUlRKiE_                                   │ 10          │ 14650.35       │
+│ Z4mainEUlRKiE_                                   │ 11          │ 16165.8        │
+│ Z4mainEUlRKiE_                                   │ 12          │ 151581.32      │
+└──────────────────────────────────────────────────┴─────────────┴────────────────┘
 ```
