@@ -1,5 +1,5 @@
 // Nothing here yet...
-#include <MPerf/Core.hpp>
+#include "Core.hpp"
 
 namespace MPerf {
 };  // namespace MPerf
