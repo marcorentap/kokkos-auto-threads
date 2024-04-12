@@ -1,4 +1,6 @@
 // #include <MPerf/Core.hpp>
+#include <err.h>
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -34,7 +36,7 @@ json kernelCacheTick, kernelCacheTock, libCacheTick, libCacheTock;
 json kernelPgFaultTick, kernelPgFaultTock, libPgFaultTick, libPgFaultTock;
 
 template <class T>
-T JsonDiff(json tick, json tock, std::string fieldName) {
+inline T JsonDiff(json tick, json tock, std::string fieldName) {
   T tickValue = tick[fieldName];
   T tockValue = tock[fieldName];
   return tockValue - tickValue;
@@ -56,6 +58,14 @@ inline void IncrKernelCount(uint64_t kID) {
   }
 }
 
+inline void checkOpenFds(measureType &measure, int expected) {
+  using linuxMeasureType = MPerf::Tracers::LinuxPerf::Measure;
+  auto asLinuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
+  if (asLinuxMeasure->fdCount() != expected) {
+    errx(EXIT_FAILURE, "Cannot open perf events, consider checking /proc/sys/kernel/perf_event_paranoid");
+  }
+}
+
 extern "C" void kokkosp_init_library(const int loadSeq,
                                      const uint64_t interfaceVer,
                                      const uint32_t devInfoCount,
@@ -71,6 +81,10 @@ extern "C" void kokkosp_init_library(const int loadSeq,
       HLMType::SWPageFaultsMaj,
       HLMType::SWPageFaultsMin,
   });
+
+  // All perf event must be successful
+  checkOpenFds(hwCacheMeasure, 2);
+  checkOpenFds(pgFaultMeasure, 3);
 
   libTimeTick = cppclock::now();
   hwCacheMeasure->DoMeasure();
