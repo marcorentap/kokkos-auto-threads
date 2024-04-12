@@ -29,7 +29,8 @@ using measureType = std::unique_ptr<MPerf::Measure>;
 tracerType linuxTracer;
 measureType hwCacheMeasure;
 
-time_point kernelTick, kernelTock, libTick, libTock;
+time_point kernelTick, kernelTock, libTimeTick, libTimeTock;
+json kernelCacheTick, kernelCacheTock, libCacheTick, libCacheTock;
 
 inline void SetKernelId(const char *name, uint64_t *kID) {
   if (idMap.find(name) == idMap.end()) {
@@ -56,20 +57,29 @@ extern "C" void kokkosp_init_library(const int loadSeq,
   hwCacheMeasure = linuxTracer.MakeMeasure(
       {HLMType::HWCacheReferences, HLMType::HWCacheMisses});
 
-  libTick = cppclock::now();
+  libTimeTick = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  libCacheTick = hwCacheMeasure->GetJSON();
 }
 
 extern "C" void kokkosp_finalize_library() {
-  libTock = cppclock::now();
+  libTimeTock = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  libCacheTock = hwCacheMeasure->GetJSON();
 
-  auto libElapsed = libTock - libTick;
+  auto libElapsed = libTimeTock - libTimeTick;
   auto execTime = duration_cast<display_unit>(libElapsed).count();
+  auto cacheMissDiff = (int)libCacheTock["hw_cache_misses"] -
+                       (int)libCacheTick["hw_cache_misses"];
+  auto cacheRefsDiff = (int)libCacheTock["hw_cache_references"] -
+                       (int)libCacheTick["hw_cache_references"];
 
-  json hookJson = hwCacheMeasure->GetJSON();
-  hookJson.merge_patch({{"hook_type", "library"}, {"exec_time", execTime}});
-  outputJson.push_back(hookJson);
+  outputJson.push_back({
+      {"hook_type", "library"},
+      {"exec_time", execTime},
+      {"hw_cache_misses", cacheMissDiff},
+      {"hw_cache_references", cacheRefsDiff},
+  });
 
   outputFile << outputJson << std::endl;
 }
@@ -79,6 +89,7 @@ extern "C" void kokkosp_begin_parallel_for(const char *name,
                                            uint64_t *kID) {
   kernelTick = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTick = hwCacheMeasure->GetJSON();
 
   SetKernelId(name, kID);
   IncrKernelCount(*kID);
@@ -88,16 +99,24 @@ extern "C" void kokkosp_begin_parallel_for(const char *name,
 extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
   kernelTock = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTock = hwCacheMeasure->GetJSON();
 
   if (kernelCounts[kID] > 10) return;
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  json hookJson = hwCacheMeasure->GetJSON();
-  hookJson.merge_patch({{"hook_type", "parallel_for"},
-                        {"kernel_id", kID},
-                        {"kernel_name", nameMap.at(kID)},
-                        {"exec_time", execTime}});
-  outputJson.push_back(hookJson);
+  auto cacheMissDiff = (int)kernelCacheTock["hw_cache_misses"] -
+                       (int)kernelCacheTick["hw_cache_misses"];
+  auto cacheRefsDiff = (int)kernelCacheTock["hw_cache_references"] -
+                       (int)kernelCacheTick["hw_cache_references"];
+
+  outputJson.push_back({
+      {"hook_type", "parallel_for"},
+      {"kernel_id", kID},
+      {"kernel_name", nameMap.at(kID)},
+      {"exec_time", execTime},
+      {"hw_cache_misses", cacheMissDiff},
+      {"hw_cache_references", cacheRefsDiff},
+  });
 }
 
 extern "C" void kokkosp_begin_parallel_scan(const char *name,
@@ -105,26 +124,34 @@ extern "C" void kokkosp_begin_parallel_scan(const char *name,
                                             uint64_t *kID) {
   kernelTick = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTick = hwCacheMeasure->GetJSON();
 
   SetKernelId(name, kID);
   IncrKernelCount(*kID);
   if (kernelCounts[*kID] > 10) return;
-  SetKernelId(name, kID);
 }
 
 extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
   kernelTock = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTock = hwCacheMeasure->GetJSON();
 
   if (kernelCounts[kID] > 10) return;
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  json hookJson = hwCacheMeasure->GetJSON();
-  hookJson.merge_patch({{"hook_type", "parallel_scan"},
-                        {"kernel_id", kID},
-                        {"kernel_name", nameMap.at(kID)},
-                        {"exec_time", execTime}});
-  outputJson.push_back(hookJson);
+  auto cacheMissDiff = (int)kernelCacheTock["hw_cache_misses"] -
+                       (int)kernelCacheTick["hw_cache_misses"];
+  auto cacheRefsDiff = (int)kernelCacheTock["hw_cache_references"] -
+                       (int)kernelCacheTick["hw_cache_references"];
+
+  outputJson.push_back({
+      {"hook_type", "parallel_scan"},
+      {"kernel_id", kID},
+      {"kernel_name", nameMap.at(kID)},
+      {"exec_time", execTime},
+      {"hw_cache_misses", cacheMissDiff},
+      {"hw_cache_references", cacheRefsDiff},
+  });
 }
 
 extern "C" void kokkosp_begin_parallel_reduce(const char *name,
@@ -132,24 +159,32 @@ extern "C" void kokkosp_begin_parallel_reduce(const char *name,
                                               uint64_t *kID) {
   kernelTick = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTick = hwCacheMeasure->GetJSON();
 
   SetKernelId(name, kID);
   IncrKernelCount(*kID);
   if (kernelCounts[*kID] > 10) return;
-  SetKernelId(name, kID);
 }
 
 extern "C" void kokkosp_end_parallel_reduce(const uint64_t kID) {
   kernelTock = cppclock::now();
   hwCacheMeasure->DoMeasure();
+  kernelCacheTock = hwCacheMeasure->GetJSON();
 
   if (kernelCounts[kID] > 10) return;
   auto kernelElapsed = kernelTock - kernelTick;
   auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  json hookJson = hwCacheMeasure->GetJSON();
-  hookJson.merge_patch({{"hook_type", "parallel_reduce"},
-                        {"kernel_id", kID},
-                        {"kernel_name", nameMap.at(kID)},
-                        {"exec_time", execTime}});
-  outputJson.push_back(hookJson);
+  auto cacheMissDiff = (int)kernelCacheTock["hw_cache_misses"] -
+                       (int)kernelCacheTick["hw_cache_misses"];
+  auto cacheRefsDiff = (int)kernelCacheTock["hw_cache_references"] -
+                       (int)kernelCacheTick["hw_cache_references"];
+
+  outputJson.push_back({
+      {"hook_type", "parallel_reduce"},
+      {"kernel_id", kID},
+      {"kernel_name", nameMap.at(kID)},
+      {"exec_time", execTime},
+      {"hw_cache_misses", cacheMissDiff},
+      {"hw_cache_references", cacheRefsDiff},
+  });
 }
