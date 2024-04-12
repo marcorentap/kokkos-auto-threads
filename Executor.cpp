@@ -1,5 +1,6 @@
 #include <dlfcn.h>
 #include <err.h>
+#include <cstdlib>
 #include <filesystem>
 #include <link.h>
 #include <sys/types.h>
@@ -62,10 +63,16 @@ json Exec::ExecProgram(int numThreads) {
   auto threadArg = execArgs[execArgsType::NUM_THREADS];
   snprintf(threadArg, EXEC_ARG_LEN, "--kokkos-num-threads=%d", numThreads);
 
+  int wstatus;
   if (fork() == 0) {
-    execv(execPath, execArgv);
+    if (execv(execPath, execArgv) < 0) {
+      err(EXIT_FAILURE, "Cannot execute %s", execPath);
+    }
   } else {
-    wait(NULL);
+    wait(&wstatus);
+    if (WEXITSTATUS(wstatus) == EXIT_FAILURE) {
+      errx(EXIT_FAILURE, "Child failed to run");
+    }
   }
 
   auto progLogFile = std::ifstream(progLogName);

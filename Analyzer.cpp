@@ -27,7 +27,10 @@ void Analyzer::ExportDB() {
       "kernel_name varchar(64),"
       "exec_time int,"
       "hw_cache_misses int,"
-      "hw_cache_references int"
+      "hw_cache_references int,"
+      "sw_page_faults int,"
+      "sw_page_faults_min int,"
+      "sw_page_faults_maj int"
       ");";
 
   sqlite3_exec(db, createTableQuery, NULL, NULL, NULL);
@@ -46,12 +49,16 @@ void Analyzer::ExportDB() {
         int execTime = kernelLog["exec_time"];
         int hwCacheMisses = kernelLog["hw_cache_misses"];
         int hwCacheRefs = kernelLog["hw_cache_references"];
+        int swPgFault = kernelLog["sw_page_faults"];
+        int swPgFaultMin = kernelLog["sw_page_faults_min"];
+        int swPgFaultMaj = kernelLog["sw_page_faults_maj"];
 
         if (kernelLog["hook_type"] == "library") {
           std::snprintf(kernelTuple, sizeof(kernelTuple),
-                        "(%d, %d, '%s', %s, %s, %d, %d, %d),", runId,
-                        numThreads, hookType.c_str(), "NULL", "NULL", execTime,
-                        hwCacheMisses, hwCacheRefs);
+                        "(%d, %d, '%s', %s, %s, %d, %d, %d, %d, %d, %d),",
+                        runId, numThreads, hookType.c_str(), "NULL", "NULL",
+                        execTime, hwCacheMisses, hwCacheRefs, swPgFault,
+                        swPgFaultMin, swPgFaultMaj);
           runQuery.append(kernelTuple);
           continue;
         }
@@ -61,13 +68,15 @@ void Analyzer::ExportDB() {
         std::string kernelName = kernelLog["kernel_name"];
 
         std::snprintf(kernelTuple, sizeof(kernelTuple),
-                      "(%d, %d, '%s', %d, '%s', %d, %d, %d),", runId,
-                      numThreads, hookType.c_str(), kernelId,
-                      kernelName.c_str(), execTime, hwCacheMisses, hwCacheRefs);
+                      "(%d, %d, '%s', %d, '%s', %d, %d, %d, %d, %d, %d),",
+                      runId, numThreads, hookType.c_str(), kernelId,
+                      kernelName.c_str(), execTime, hwCacheMisses, hwCacheRefs,
+                      swPgFault, swPgFaultMin, swPgFaultMaj);
         runQuery.append(kernelTuple);
       }
       // Replace trailing comma with semicolon
       runQuery[runQuery.length() - 1] = ';';
+      std::cout << "Query: " << runQuery << std::endl;
       wholeQuery.append(runQuery);
     }
     sqlite3_exec(db, wholeQuery.c_str(), NULL, NULL, NULL);

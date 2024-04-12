@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <string>
 
 #include "Core.hpp"
 
@@ -91,6 +92,10 @@ class Tracer : public ::MPerf::Tracer {
       {HLMType::HWCacheNodeWriteAccess, "hw_cache_node_write_access"},
       {HLMType::HWCacheNodePrefetchAccess, "hw_cache_node_prefetch_access"},
       {HLMType::HWCacheNodePrefetchMiss, "hw_cache_node_prefetch_miss"},
+
+      {HLMType::SWPageFaults, "sw_page_faults"},
+      {HLMType::SWPageFaultsMin, "sw_page_faults_min"},
+      {HLMType::SWPageFaultsMaj, "sw_page_faults_maj"},
   };
 
   hlToTypeType hlToType = {
@@ -144,6 +149,10 @@ class Tracer : public ::MPerf::Tracer {
       {HLMType::HWCacheNodeWriteAccess, PERF_TYPE_HW_CACHE},
       {HLMType::HWCacheNodePrefetchAccess, PERF_TYPE_HW_CACHE},
       {HLMType::HWCacheNodePrefetchMiss, PERF_TYPE_HW_CACHE},
+
+      {HLMType::SWPageFaults, PERF_TYPE_SOFTWARE},
+      {HLMType::SWPageFaultsMin, PERF_TYPE_SOFTWARE},
+      {HLMType::SWPageFaultsMaj, PERF_TYPE_SOFTWARE},
   };
 
   hlToConfigType hlToConfig = {
@@ -214,10 +223,12 @@ class Tracer : public ::MPerf::Tracer {
        MakeCacheConfig(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_WRITE,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheDTLBPrefetchAccess,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_DTLB,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheDTLBPrefetchMiss,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_DTLB,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_MISS)},
 
       {HLMType::HWCacheITLBReadAccess,
@@ -230,10 +241,12 @@ class Tracer : public ::MPerf::Tracer {
        MakeCacheConfig(PERF_COUNT_HW_CACHE_ITLB, PERF_COUNT_HW_CACHE_OP_WRITE,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheITLBPrefetchAccess,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_ITLB, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_ITLB,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheITLBPrefetchMiss,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_ITLB, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_ITLB,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_MISS)},
 
       {HLMType::HWCacheBPUReadAccess,
@@ -262,11 +275,17 @@ class Tracer : public ::MPerf::Tracer {
        MakeCacheConfig(PERF_COUNT_HW_CACHE_NODE, PERF_COUNT_HW_CACHE_OP_WRITE,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheNodePrefetchAccess,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_NODE, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_NODE,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_ACCESS)},
       {HLMType::HWCacheNodePrefetchMiss,
-       MakeCacheConfig(PERF_COUNT_HW_CACHE_NODE, PERF_COUNT_HW_CACHE_OP_PREFETCH,
+       MakeCacheConfig(PERF_COUNT_HW_CACHE_NODE,
+                       PERF_COUNT_HW_CACHE_OP_PREFETCH,
                        PERF_COUNT_HW_CACHE_RESULT_MISS)},
+
+      {HLMType::SWPageFaults, PERF_COUNT_SW_PAGE_FAULTS},
+      {HLMType::SWPageFaultsMin, PERF_COUNT_SW_PAGE_FAULTS_MIN},
+      {HLMType::SWPageFaultsMaj, PERF_COUNT_SW_PAGE_FAULTS_MAJ},
   };
 
  public:

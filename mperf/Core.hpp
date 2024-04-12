@@ -62,6 +62,10 @@ enum class HLMeasureType {
   HWCacheNodePrefetchAccess,
   HWCacheNodePrefetchMiss,
 
+  SWPageFaults,
+  SWPageFaultsMin,
+  SWPageFaultsMaj,
+
 };
 
 namespace Tracers {
