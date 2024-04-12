@@ -76,7 +76,6 @@ void Analyzer::ExportDB() {
       }
       // Replace trailing comma with semicolon
       runQuery[runQuery.length() - 1] = ';';
-      std::cout << "Query: " << runQuery << std::endl;
       wholeQuery.append(runQuery);
     }
     sqlite3_exec(db, wholeQuery.c_str(), NULL, NULL, NULL);
