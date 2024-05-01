@@ -1,12 +1,12 @@
 #include <dlfcn.h>
 #include <err.h>
-#include <cstdlib>
-#include <filesystem>
 #include <link.h>
+#include <sched.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <ios>
@@ -44,7 +44,13 @@ std::string Exec::GetFullLibPath() {
   // Open lib, check it exists
   auto handle = dlopen(libName.c_str(), RTLD_LAZY);
   if (handle == NULL) {
-    err(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
+    char *LD_LIBRARY_PATH = getenv("LD_LIBRARY_PATH");
+    if (LD_LIBRARY_PATH != NULL) {
+      err(EXIT_FAILURE, "Cannot dlopen library %s with LD_LIBRARY_PATH=%s",
+          libName.c_str(), LD_LIBRARY_PATH);
+    } else {
+      err(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
+    }
   }
   // Lib exists, get full path
   auto ret = dlinfo(handle, RTLD_DI_LINKMAP, &linkMap);
@@ -58,20 +64,46 @@ std::string Exec::GetFullLibPath() {
 json Exec::ExecProgram(int numThreads) {
   auto execArgv = &argv[1];
   auto execPath = this->execPath.c_str();
-
   // Set num threads
   auto threadArg = execArgs[execArgsType::NUM_THREADS];
   snprintf(threadArg, EXEC_ARG_LEN, "--kokkos-num-threads=%d", numThreads);
 
-  int wstatus;
-  if (fork() == 0) {
-    if (execv(execPath, execArgv) < 0) {
-      err(EXIT_FAILURE, "Cannot execute %s", execPath);
+  int pid = fork();
+
+  if (pid < 0) {
+    err(EXIT_FAILURE, "Cannot fork: ");
+  }
+
+  if (pid == 0) {
+    cpu_set_t cpuSet;
+    sched_param param;
+    int policy = this->schedPolicy;
+
+    // Set child's scheduler to SCHED_FIFO with max priority
+    if (sched_getparam(pid, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot get child scheduling parameters: ");
     }
+    param.sched_priority = sched_get_priority_max(policy);
+    if (sched_setscheduler(pid, policy, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot set child scheduler: ");
+    }
+
+    // Limit child to CPUs 0 to numThreads-1
+    CPU_ZERO(&cpuSet);
+    for (int i = 0; i < numThreads; i++) {
+      CPU_SET(i, &cpuSet);
+    }
+    if (sched_setaffinity(pid, sizeof cpuSet, &cpuSet) < 0) {
+      err(EXIT_FAILURE, "Cannot set child affinity: ");
+    }
+
+    execv(execPath, execArgv);
   } else {
+    int wstatus;
     wait(&wstatus);
-    if (WEXITSTATUS(wstatus) == EXIT_FAILURE) {
-      errx(EXIT_FAILURE, "Child failed to run");
+
+    if (wstatus != EXIT_SUCCESS) {
+      err(EXIT_FAILURE, "Child exited unsuccessfully");
     }
   }
 
@@ -101,7 +133,7 @@ json Exec::Exec(int numRuns, int maxThreads) {
     auto runJson = ExecRun(maxThreads);
     rootJson.push_back({{"run_id", run}, {"run_log", runJson}});
     // Write to file on every run
-    logFile.open(logName,fileMode);
+    logFile.open(logName, fileMode);
     logFile << rootJson.dump(2);
     logFile.close();
   }
