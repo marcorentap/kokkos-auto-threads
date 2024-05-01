@@ -44,7 +44,12 @@ std::string Exec::GetFullLibPath() {
   // Open lib, check it exists
   auto handle = dlopen(libName.c_str(), RTLD_LAZY);
   if (handle == NULL) {
-    err(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
+    char *LD_LIBRARY_PATH = getenv("LD_LIBRARY_PATH");
+    if (LD_LIBRARY_PATH != NULL) {
+      err(EXIT_FAILURE, "Cannot dlopen library %s with LD_LIBRARY_PATH=%s", libName.c_str(), LD_LIBRARY_PATH);
+    } else {
+      err(EXIT_FAILURE, "Cannot dlopen library %s", libName.c_str());
+    }
   }
   // Lib exists, get full path
   auto ret = dlinfo(handle, RTLD_DI_LINKMAP, &linkMap);
