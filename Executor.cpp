@@ -78,13 +78,13 @@ json Exec::ExecProgram(int numThreads) {
     sched_param param;
     int policy = this->schedPolicy;
 
-    // Make child highest priority
+    // Set child's scheduler to SCHED_FIFO with max priority
     if (sched_getparam(pid, &param) < 0) {
       err(EXIT_FAILURE, "Cannot get child scheduling parameters: ");
     }
     param.sched_priority = sched_get_priority_max(policy);
-    if (sched_setparam(pid, &param) < 0) {
-      err(EXIT_FAILURE, "Cannot set child scheduling parameters: ");
+    if (sched_setscheduler(pid, policy, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot set child scheduler: ");
     }
 
     // Limit child to CPUs 0 to numThreads-1
@@ -96,14 +96,14 @@ json Exec::ExecProgram(int numThreads) {
       err(EXIT_FAILURE, "Cannot set child affinity: ");
     }
 
-    // Set child scheduler
-    if (sched_setscheduler(pid, policy, &param) < 0) {
-      err(EXIT_FAILURE, "Cannot set child scheduler: ");
-    }
-
     execv(execPath, execArgv);
   } else {
-    wait(NULL);
+    int wstatus;
+    wait(&wstatus);
+
+    if (wstatus != EXIT_SUCCESS) {
+      err(EXIT_FAILURE, "Child exited unsuccessfully");
+    }
   }
 
   auto progLogFile = std::ifstream(progLogName);
