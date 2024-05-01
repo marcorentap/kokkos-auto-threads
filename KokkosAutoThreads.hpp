@@ -5,6 +5,7 @@
 #include <array>
 #include <fstream>
 #include <string>
+#include <sched.h>
 
 #include "json.hpp"
 
@@ -21,6 +22,7 @@ class Executor {
 
  private:
   static constexpr int EXEC_ARG_LEN = 1024;
+  int schedPolicy = SCHED_FIFO;
 
   enum execArgsType {
     TOOLS_LIBS,

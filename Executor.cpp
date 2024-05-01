@@ -1,11 +1,12 @@
 #include <dlfcn.h>
 #include <err.h>
-#include <filesystem>
 #include <link.h>
+#include <sched.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <ios>
@@ -57,12 +58,44 @@ std::string Exec::GetFullLibPath() {
 json Exec::ExecProgram(int numThreads) {
   auto execArgv = &argv[1];
   auto execPath = this->execPath.c_str();
-
   // Set num threads
   auto threadArg = execArgs[execArgsType::NUM_THREADS];
   snprintf(threadArg, EXEC_ARG_LEN, "--kokkos-num-threads=%d", numThreads);
 
-  if (fork() == 0) {
+  int pid = fork();
+
+  if (pid < 0) {
+    err(EXIT_FAILURE, "Cannot fork: ");
+  }
+
+  if (pid == 0) {
+    cpu_set_t cpuSet;
+    sched_param param;
+    int policy = this->schedPolicy;
+
+    // Make child highest priority
+    if (sched_getparam(pid, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot get child scheduling parameters: ");
+    }
+    param.sched_priority = sched_get_priority_max(policy);
+    if (sched_setparam(pid, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot set child scheduling parameters: ");
+    }
+
+    // Limit child to CPUs 0 to numThreads-1
+    CPU_ZERO(&cpuSet);
+    for (int i = 0; i < numThreads; i++) {
+      CPU_SET(i, &cpuSet);
+    }
+    if (sched_setaffinity(pid, sizeof cpuSet, &cpuSet) < 0) {
+      err(EXIT_FAILURE, "Cannot set child affinity: ");
+    }
+
+    // Set child scheduler
+    if (sched_setscheduler(pid, policy, &param) < 0) {
+      err(EXIT_FAILURE, "Cannot set child scheduler: ");
+    }
+
     execv(execPath, execArgv);
   } else {
     wait(NULL);
@@ -94,7 +127,7 @@ json Exec::Exec(int numRuns, int maxThreads) {
     auto runJson = ExecRun(maxThreads);
     rootJson.push_back({{"run_id", run}, {"run_log", runJson}});
     // Write to file on every run
-    logFile.open(logName,fileMode);
+    logFile.open(logName, fileMode);
     logFile << rootJson.dump(2);
     logFile.close();
   }
