@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+import pandas as pd
+import matplotlib.pyplot as plt
+import sys
+
+results = pd.read_csv(sys.stdin)
+kernel_names = results["kernel_name"].unique()
+max_num_threads = max(results["num_threads"])
+measure_names = results.columns.to_list()
+measure_names.remove("kernel_name")
+measure_names.remove("num_threads")
+
+axs = []
+n_kernels = len(kernel_names)
+n_measures = len(measure_names)
+fig = plt.figure()
+plt.subplots(n_kernels, n_measures, figsize=(2*n_kernels,10*n_measures))
+
+for i, kernel_name in enumerate(kernel_names):
+    for j, measure_name in enumerate(measure_names):
+        kernel_result = results[results["kernel_name"] == kernel_name]
+        ax = plt.subplot(n_kernels, n_measures, (i)*n_measures + j+1)
+        ax.set_title(kernel_name + " [" + measure_name + "]")
+        axs.append(ax)
+        plt.xlabel("num_threads")
+        plt.ylabel(measure_name)
+        ax.plot(kernel_result["num_threads"], kernel_result[measure_name])
+    
+plt.xticks(minor=True)
+plt.tight_layout()
+plt.savefig("plotter.pdf")

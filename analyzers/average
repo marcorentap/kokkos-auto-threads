@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+import pandas as pd
+import sys
+
+results = pd.read_csv(sys.stdin)
+
+# Only keep num_threads,kernel_name and performance measures
+results = results[results["hook_type"] != "library"]
+
+kernel_names = results["kernel_name"].unique()
+max_num_threads = max(results["num_threads"])
+measure_names = results.columns.to_list()
+measure_names.remove("kernel_id")
+measure_names.remove("run_id")
+measure_names.remove("hook_type")
+measure_names.remove("kernel_name")
+measure_names.remove("num_threads")
+
+averages = []
+average_columns = ["kernel_name", "num_threads"]
+average_columns.extend(measure_names)
+for kernel_name in kernel_names:
+    kernel_df = results[results["kernel_name"] == kernel_name]
+    kernel_df = kernel_df.drop("kernel_name", axis=1)
+    kernel_df = kernel_df.drop("kernel_id", axis=1)
+    kernel_df = kernel_df.drop("run_id", axis=1)
+    kernel_df = kernel_df.drop("hook_type", axis=1)
+    for num_threads in range(1, max_num_threads+1):
+        thread_df = kernel_df[kernel_df["num_threads"] == num_threads].drop("num_threads", axis=1)
+        row = [kernel_name, num_threads]
+        row.extend(thread_df.mean())
+        averages.append(row)
+
+averages_df = pd.DataFrame(averages, columns=average_columns)
+print(averages_df.to_csv(index=False, index_label=False))

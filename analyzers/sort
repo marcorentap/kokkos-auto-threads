@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+import pandas as pd
+import sys
+
+results = pd.read_csv(sys.stdin)
+out = results.sort_values(by=["kernel_name", "num_threads"])
+print(out.to_csv(index=False, index_label=False));
