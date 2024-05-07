@@ -38,19 +38,19 @@ void Analyzer::ExportDB() {
         char kernelTuple[4096] = {0};
 
         // Kernel and application has these
-        int runId = run["run_id"];
-        int numThreads = threadRun["num_threads"];
+        uint64_t runId = run["run_id"];
+        uint64_t numThreads = threadRun["num_threads"];
         std::string hookType = kernelLog["hook_type"];
-        int execTime = kernelLog["time"];  // Follow MPerf's naming
-        int hwCacheMisses = kernelLog["hw_cache_misses"];
-        int hwCacheRefs = kernelLog["hw_cache_references"];
-        int swPgFault = kernelLog["sw_page_faults"];
-        int swPgFaultMin = kernelLog["sw_page_faults_min"];
-        int swPgFaultMaj = kernelLog["sw_page_faults_maj"];
+        uint64_t execTime = kernelLog["time"];  // Follow MPerf's naming
+        uint64_t hwCacheMisses = kernelLog["hw_cache_misses"];
+        uint64_t hwCacheRefs = kernelLog["hw_cache_references"];
+        uint64_t swPgFault = kernelLog["sw_page_faults"];
+        uint64_t swPgFaultMin = kernelLog["sw_page_faults_min"];
+        uint64_t swPgFaultMaj = kernelLog["sw_page_faults_maj"];
 
         if (kernelLog["hook_type"] == "library") {
           std::snprintf(kernelTuple, sizeof(kernelTuple),
-                        "(%d, %d, '%s', %s, %s, %d, %d, %d, %d, %d, %d),",
+                        "(%lu, %lu, '%s', %s, %s, %lu, %lu, %lu, %lu, %lu, %lu),",
                         runId, numThreads, hookType.c_str(), "NULL", "NULL",
                         execTime, hwCacheMisses, hwCacheRefs, swPgFault,
                         swPgFaultMin, swPgFaultMaj);
@@ -62,7 +62,7 @@ void Analyzer::ExportDB() {
         std::string kernelName = kernelLog["kernel_name"];
 
         std::snprintf(kernelTuple, sizeof(kernelTuple),
-                      "(%d, %d, '%s', '%s', %d, %d, %d, %d, %d, %d),", runId,
+                      "(%lu, %lu, '%s', '%s', %lu, %lu, %lu, %lu, %lu, %lu),", runId,
                       numThreads, hookType.c_str(), kernelName.c_str(),
                       execTime, hwCacheMisses, hwCacheRefs, swPgFault,
                       swPgFaultMin, swPgFaultMaj);
