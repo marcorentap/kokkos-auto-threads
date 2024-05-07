@@ -27,8 +27,13 @@ for kernel_name in kernel_names:
     kernel_df = kernel_df.drop("hook_type", axis=1)
     for num_threads in range(1, max_num_threads+1):
         thread_df = kernel_df[kernel_df["num_threads"] == num_threads].drop("num_threads", axis=1)
+        # Ignore empty thread data
+        if thread_df.empty:
+            continue
+
         row = [kernel_name, num_threads]
         row.extend(thread_df.mean())
+
         averages.append(row)
 
 averages_df = pd.DataFrame(averages, columns=average_columns)
