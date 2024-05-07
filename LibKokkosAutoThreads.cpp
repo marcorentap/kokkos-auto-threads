@@ -5,9 +5,9 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include <MPerf/Tracers/LinuxPerf.hpp>
 
 #include "KokkosAutoThreads.hpp"
-#include "mperf/LinuxPerf.hpp"
 
 using cppclock = std::chrono::steady_clock;
 using time_point = std::chrono::time_point<cppclock, cppclock::duration>;
@@ -61,7 +61,7 @@ inline void IncrKernelCount(uint64_t kID) {
 inline void checkOpenFds(measureType &measure, int expected) {
   using linuxMeasureType = MPerf::Tracers::LinuxPerf::Measure;
   auto asLinuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
-  if (asLinuxMeasure->fdCount() != expected) {
+  if (asLinuxMeasure->GetOpenFDCount() != expected) {
     errx(EXIT_FAILURE, "Cannot open perf events, consider checking /proc/sys/kernel/perf_event_paranoid");
   }
 }
