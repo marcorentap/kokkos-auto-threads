@@ -17,3 +17,8 @@ set_target_properties(kokkosautothreads_lib PROPERTIES OUTPUT_NAME kokkosautothr
 target_link_libraries(kokkosautothreads_lib PUBLIC mperfprofiler MPerf::MPerf)
 
 install(TARGETS kokkosautothreads kokkosautothreads_lib)
+install(PROGRAMS 
+  analyzers/kat-average
+  analyzers/kat-plotter
+  analyzers/kat-sort
+DESTINATION bin)
