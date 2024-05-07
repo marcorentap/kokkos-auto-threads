@@ -1,39 +1,29 @@
-// #include <MPerf/Core.hpp>
 #include <err.h>
 
-#include <chrono>
+#include <MPerf/Tracers/CPPChrono.hpp>
+#include <MPerf/Tracers/LinuxPerf.hpp>
 #include <fstream>
 #include <iostream>
-#include <unordered_map>
-#include <MPerf/Tracers/LinuxPerf.hpp>
 
 #include "KokkosAutoThreads.hpp"
 
-using cppclock = std::chrono::steady_clock;
-using time_point = std::chrono::time_point<cppclock, cppclock::duration>;
-using display_unit = std::chrono::nanoseconds;
 using json = nlohmann::json;
 using HLMType = MPerf::HLMeasureType;
-using std::chrono::duration_cast;
 
 auto logName = KokkosAutoThreads::progLogName;
 auto outputFile = std::ofstream(logName);
-auto outputJson = json();
-
-// Variables to keep track of kernel name, id, count
-auto idMap = std::unordered_map<std::string, int>();
-auto nameMap = std::unordered_map<int, std::string>();
-auto kernelCounts = std::unordered_map<uint64_t, size_t>();
 
 // Measurements
-using tracerType = MPerf::Tracers::LinuxPerf::Tracer;
+using linuxTracerType = MPerf::Tracers::LinuxPerf::Tracer;
+using chronoTracerType = MPerf::Tracers::CPPChrono::Tracer;
 using measureType = std::unique_ptr<MPerf::Measure>;
-tracerType linuxTracer;
-measureType hwCacheMeasure, pgFaultMeasure;
+linuxTracerType linuxTracer;
+chronoTracerType chronoTracer;
 
-time_point kernelTick, kernelTock, libTimeTick, libTimeTock;
-json kernelCacheTick, kernelCacheTock, libCacheTick, libCacheTock;
-json kernelPgFaultTick, kernelPgFaultTock, libPgFaultTick, libPgFaultTock;
+// List of measure (tick, tock) pair
+std::vector<measureType> measures;
+std::vector<json> kernelTicks, libraryTicks;
+std::vector<json> kernelTocks, libraryTocks;
 
 template <class T>
 inline T JsonDiff(json tick, json tock, std::string fieldName) {
@@ -42,27 +32,28 @@ inline T JsonDiff(json tick, json tock, std::string fieldName) {
   return tockValue - tickValue;
 }
 
-inline void SetKernelId(const char *name, uint64_t *kID) {
-  if (idMap.find(name) == idMap.end()) {
-    idMap[name] = idMap.size();
+json GetCurrentMeasurements() {
+  // Measure
+  for (auto &measure : measures) {
+    measure->DoMeasure();
   }
-  *kID = idMap[name];
-  nameMap[*kID] = name;
-}
 
-inline void IncrKernelCount(uint64_t kID) {
-  if (kernelCounts.find(kID) == kernelCounts.end()) {
-    kernelCounts[kID] = 1;
-  } else {
-    kernelCounts[kID]++;
+  // Combine measure jsons
+  json j;
+  for (auto &measure : measures) {
+    auto measureJson = measure->GetJSON();
+    j.update(measureJson);
   }
+  return j;
 }
 
 inline void checkOpenFds(measureType &measure, int expected) {
   using linuxMeasureType = MPerf::Tracers::LinuxPerf::Measure;
   auto asLinuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
   if (asLinuxMeasure->GetOpenFDCount() != expected) {
-    errx(EXIT_FAILURE, "Cannot open perf events, consider checking /proc/sys/kernel/perf_event_paranoid");
+    errx(EXIT_FAILURE,
+         "Cannot open perf events, consider checking "
+         "/proc/sys/kernel/perf_event_paranoid");
   }
 }
 
@@ -71,12 +62,12 @@ extern "C" void kokkosp_init_library(const int loadSeq,
                                      const uint32_t devInfoCount,
                                      void *deviceInfo) {
   // Create and register measures
-  // Do measurement every parallel for, reduce, scan
-  hwCacheMeasure = linuxTracer.MakeMeasure({
+  auto timeMeasure = chronoTracer.MakeMeasure(HLMType::Time);
+  auto hwCacheMeasure = linuxTracer.MakeMeasure({
       HLMType::HWCacheReferences,
       HLMType::HWCacheMisses,
   });
-  pgFaultMeasure = linuxTracer.MakeMeasure({
+  auto pgFaultMeasure = linuxTracer.MakeMeasure({
       HLMType::SWPageFaults,
       HLMType::SWPageFaultsMaj,
       HLMType::SWPageFaultsMin,
@@ -86,195 +77,89 @@ extern "C" void kokkosp_init_library(const int loadSeq,
   checkOpenFds(hwCacheMeasure, 2);
   checkOpenFds(pgFaultMeasure, 3);
 
-  libTimeTick = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
+  // Register measure
+  measures.push_back(std::move(timeMeasure));
+  measures.push_back(std::move(hwCacheMeasure));
+  measures.push_back(std::move(pgFaultMeasure));
 
-  libCacheTick = hwCacheMeasure->GetJSON();
-  libPgFaultTick = pgFaultMeasure->GetJSON();
+  auto j = GetCurrentMeasurements();
+  j["hook_type"] = "library";
+  libraryTicks.push_back(j);
 }
 
 extern "C" void kokkosp_finalize_library() {
-  libTimeTock = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
+  json outputJson;
+  auto j = GetCurrentMeasurements();
+  libraryTocks.push_back(j);
 
-  libCacheTock = hwCacheMeasure->GetJSON();
-  libPgFaultTock = pgFaultMeasure->GetJSON();
+  // Calculate kernel deltas
+  for (int i = 0; i < kernelTicks.size(); i++) {
+    auto tick = kernelTicks.at(i);
+    auto tock = kernelTocks.at(i);
+    json delta;
+    for (auto tickItem : tick.items()) {
+      auto key = tickItem.key();
+      if (key == "kernel_name" || key == "hook_type") continue;
 
-  auto libElapsed = libTimeTock - libTimeTick;
-  auto execTime = duration_cast<display_unit>(libElapsed).count();
-  auto cacheMissDiff =
-      JsonDiff<int>(libCacheTick, libCacheTock, "hw_cache_misses");
-  auto cacheRefsDiff =
-      JsonDiff<int>(libCacheTick, libCacheTock, "hw_cache_references");
-  auto pgFaultDiff =
-      JsonDiff<int>(libPgFaultTick, libPgFaultTock, "sw_page_faults");
-  auto pgFaultMinDiff =
-      JsonDiff<int>(libPgFaultTick, libPgFaultTock, "sw_page_faults_min");
-  auto pgFaultMajDiff =
-      JsonDiff<int>(libPgFaultTick, libPgFaultTock, "sw_page_faults_maj");
+      auto diff = JsonDiff<uint64_t>(tick, tock, key);
+      delta[key] = diff;
+    }
+    delta.update({
+        {"kernel_name", tick["kernel_name"]},
+        {"hook_type", tick["hook_type"]},
+    });
+    outputJson.push_back(delta);
+  }
 
-  outputJson.push_back({
-      {"hook_type", "library"},
-      {"exec_time", execTime},
-      {"hw_cache_misses", cacheMissDiff},
-      {"hw_cache_references", cacheRefsDiff},
-      {"sw_page_faults", pgFaultDiff},
-      {"sw_page_faults_min", pgFaultMinDiff},
-      {"sw_page_faults_maj", pgFaultMajDiff},
-  });
-
+  // Calculate library deltas
   outputFile << outputJson << std::endl;
 }
 
 extern "C" void kokkosp_begin_parallel_for(const char *name,
                                            const uint32_t devID,
                                            uint64_t *kID) {
-  kernelTick = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTick = hwCacheMeasure->GetJSON();
-  kernelPgFaultTick = pgFaultMeasure->GetJSON();
-
-  SetKernelId(name, kID);
-  IncrKernelCount(*kID);
-  if (kernelCounts[*kID] > 10) return;
+  auto j = GetCurrentMeasurements();
+  j["hook_type"] = "parallel_for";
+  j["kernel_name"] = name;
+  kernelTicks.push_back(j);
 }
 
 extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
-  if (kernelCounts[kID] > 10) return;
-  kernelTock = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTock = hwCacheMeasure->GetJSON();
-  kernelPgFaultTock = pgFaultMeasure->GetJSON();
-
-  auto kernelElapsed = kernelTock - kernelTick;
-  auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  auto cacheMissDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_misses");
-  auto cacheRefsDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_references");
-  auto pgFaultDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults");
-  auto pgFaultMinDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_min");
-  auto pgFaultMajDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_maj");
-
-  outputJson.push_back({
-      {"hook_type", "parallel_for"},
-      {"kernel_id", kID},
-      {"kernel_name", nameMap.at(kID)},
-      {"exec_time", execTime},
-      {"hw_cache_misses", cacheMissDiff},
-      {"hw_cache_references", cacheRefsDiff},
-      {"sw_page_faults", pgFaultDiff},
-      {"sw_page_faults_min", pgFaultMinDiff},
-      {"sw_page_faults_maj", pgFaultMajDiff},
-  });
+  auto j = GetCurrentMeasurements();
+  auto cur = kernelTicks.back();
+  j["hook_type"] = cur["hook_type"];
+  j["kernel_name"] = cur["kernel_name"];
+  kernelTocks.push_back(j);
 }
 
 extern "C" void kokkosp_begin_parallel_scan(const char *name,
                                             const uint32_t devID,
                                             uint64_t *kID) {
-  kernelTick = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTick = hwCacheMeasure->GetJSON();
-  kernelPgFaultTick = pgFaultMeasure->GetJSON();
-
-  SetKernelId(name, kID);
-  IncrKernelCount(*kID);
-  if (kernelCounts[*kID] > 10) return;
+  auto j = GetCurrentMeasurements();
+  j["hook_type"] = "parallel_scan";
+  kernelTicks.push_back(j);
 }
 
 extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
-  if (kernelCounts[kID] > 10) return;
-  kernelTock = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTock = hwCacheMeasure->GetJSON();
-  kernelPgFaultTock = pgFaultMeasure->GetJSON();
-
-  auto kernelElapsed = kernelTock - kernelTick;
-  auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  auto cacheMissDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_misses");
-  auto cacheRefsDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_references");
-  auto pgFaultDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults");
-  auto pgFaultMinDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_min");
-  auto pgFaultMajDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_maj");
-
-  outputJson.push_back({
-      {"hook_type", "parallel_scan"},
-      {"kernel_id", kID},
-      {"kernel_name", nameMap.at(kID)},
-      {"exec_time", execTime},
-      {"hw_cache_misses", cacheMissDiff},
-      {"hw_cache_references", cacheRefsDiff},
-      {"sw_page_faults", pgFaultDiff},
-      {"sw_page_faults_min", pgFaultMinDiff},
-      {"sw_page_faults_maj", pgFaultMajDiff},
-  });
+  auto j = GetCurrentMeasurements();
+  auto cur = kernelTicks.back();
+  j["hook_type"] = cur["hook_type"];
+  j["kernel_name"] = cur["kernel_name"];
+  kernelTocks.push_back(j);
 }
 
 extern "C" void kokkosp_begin_parallel_reduce(const char *name,
                                               const uint32_t devID,
                                               uint64_t *kID) {
-  kernelTick = cppclock::now();
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTick = hwCacheMeasure->GetJSON();
-  kernelPgFaultTick = pgFaultMeasure->GetJSON();
-
-  SetKernelId(name, kID);
-  IncrKernelCount(*kID);
-  if (kernelCounts[*kID] > 10) return;
+  auto j = GetCurrentMeasurements();
+  j["hook_type"] = "parallel_reduce";
+  kernelTicks.push_back(j);
 }
 
 extern "C" void kokkosp_end_parallel_reduce(const uint64_t kID) {
-  if (kernelCounts[kID] > 10) return;
-  kernelTock = cppclock::now();
-
-  hwCacheMeasure->DoMeasure();
-  pgFaultMeasure->DoMeasure();
-
-  kernelCacheTock = hwCacheMeasure->GetJSON();
-  kernelPgFaultTock = pgFaultMeasure->GetJSON();
-
-  auto kernelElapsed = kernelTock - kernelTick;
-  auto execTime = duration_cast<display_unit>(kernelElapsed).count();
-  auto cacheMissDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_misses");
-  auto cacheRefsDiff =
-      JsonDiff<int>(kernelCacheTick, kernelCacheTock, "hw_cache_references");
-  auto pgFaultDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults");
-  auto pgFaultMinDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_min");
-  auto pgFaultMajDiff =
-      JsonDiff<int>(kernelPgFaultTick, kernelPgFaultTock, "sw_page_faults_maj");
-
-  outputJson.push_back({
-      {"hook_type", "parallel_reduce"},
-      {"kernel_id", kID},
-      {"kernel_name", nameMap.at(kID)},
-      {"exec_time", execTime},
-      {"hw_cache_misses", cacheMissDiff},
-      {"hw_cache_references", cacheRefsDiff},
-      {"sw_page_faults", pgFaultDiff},
-      {"sw_page_faults_min", pgFaultMinDiff},
-      {"sw_page_faults_maj", pgFaultMajDiff},
-  });
+  auto j = GetCurrentMeasurements();
+  auto cur = kernelTicks.back();
+  j["hook_type"] = cur["hook_type"];
+  j["kernel_name"] = cur["kernel_name"];
+  kernelTocks.push_back(j);
 }

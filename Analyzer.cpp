@@ -1,10 +1,6 @@
 #include <sqlite3.h>
 
 #include <cstdio>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <unordered_map>
 
 #include "KokkosAutoThreads.hpp"
 
@@ -23,9 +19,8 @@ void Analyzer::ExportDB() {
       "run_id int,"
       "num_threads int,"
       "hook_type varchar(64),"
-      "kernel_id int,"
       "kernel_name varchar(64),"
-      "exec_time int,"
+      "exec_time int,"  // NOTE: This is different from MPerf's naming
       "hw_cache_misses int,"
       "hw_cache_references int,"
       "sw_page_faults int,"
@@ -46,7 +41,7 @@ void Analyzer::ExportDB() {
         int runId = run["run_id"];
         int numThreads = threadRun["num_threads"];
         std::string hookType = kernelLog["hook_type"];
-        int execTime = kernelLog["exec_time"];
+        int execTime = kernelLog["time"];  // Follow MPerf's naming
         int hwCacheMisses = kernelLog["hw_cache_misses"];
         int hwCacheRefs = kernelLog["hw_cache_references"];
         int swPgFault = kernelLog["sw_page_faults"];
@@ -64,14 +59,13 @@ void Analyzer::ExportDB() {
         }
 
         // Only kernel has these
-        int kernelId = kernelLog["kernel_id"];
         std::string kernelName = kernelLog["kernel_name"];
 
         std::snprintf(kernelTuple, sizeof(kernelTuple),
-                      "(%d, %d, '%s', %d, '%s', %d, %d, %d, %d, %d, %d),",
-                      runId, numThreads, hookType.c_str(), kernelId,
-                      kernelName.c_str(), execTime, hwCacheMisses, hwCacheRefs,
-                      swPgFault, swPgFaultMin, swPgFaultMaj);
+                      "(%d, %d, '%s', '%s', %d, %d, %d, %d, %d, %d),", runId,
+                      numThreads, hookType.c_str(), kernelName.c_str(),
+                      execTime, hwCacheMisses, hwCacheRefs, swPgFault,
+                      swPgFaultMin, swPgFaultMaj);
         runQuery.append(kernelTuple);
       }
       // Replace trailing comma with semicolon
@@ -82,67 +76,4 @@ void Analyzer::ExportDB() {
   }
 }
 
-json Analyzer::Summarize() {
-  json summary;
-  // kID -> (kernel name, best num_threads, best exec_time)
-  using resultType = std::tuple<std::string, uint64_t, uint64_t>;
-  std::unordered_map<int, resultType> kernelResults;
-  resultType libResult = {"library", 0, 0};
-
-  // Each data is multiple run
-  for (auto &run : data) {
-    auto threadLogs = run["run_log"];
-    // Each run executes multiple numThreads
-    for (auto &threadRun : threadLogs) {
-      auto numThreads = threadRun["num_threads"];
-      auto kernelLogs = threadRun["run_log"];
-      // Each thread executes multiple kernel
-      for (auto &kernelLog : kernelLogs) {
-        // Library result
-        if (kernelLog["hook_type"] == "library") {
-          auto execTime = kernelLog["exec_time"];
-          auto curExecTime = std::get<2>(libResult);
-          if (curExecTime == 0 || execTime < curExecTime) {
-            libResult = {"library", numThreads, execTime};
-          }
-          continue;
-        }
-
-        auto kernelId = kernelLog["kernel_id"];
-        auto kernelName = kernelLog["kernel_name"];
-        auto execTime = kernelLog["exec_time"];
-
-        // No result yet, exec time is best time
-        if (kernelResults.find(kernelId) == kernelResults.end()) {
-          kernelResults[kernelId] = {kernelName, numThreads, execTime};
-          continue;
-        }
-
-        // Store best thread count
-        auto curResult = kernelResults[kernelId];
-        auto curExecTime = std::get<2>(curResult);
-        if (execTime < curExecTime) {
-          kernelResults[kernelId] = {kernelName, numThreads, execTime};
-        }
-      }
-    }
-  }
-
-  // Build json
-  summary["lib_num_thread"] = std::get<1>(libResult);
-  summary["lib_exec_time"] = std::get<2>(libResult);
-
-  json kernelJson;
-  for (auto &kernelResult : kernelResults) {
-    auto id = kernelResult.first;
-    auto result = kernelResult.second;
-    auto name = std::get<0>(result);
-    auto numThreads = std::get<1>(result);
-    auto execTime = std::get<2>(result);
-    kernelJson.push_back(
-        {{"name", name}, {"num_thread", numThreads}, {"exec_time", execTime}});
-  }
-  summary["kernels"] = kernelJson;
-
-  return summary;
-}
+json Analyzer::Summarize() { return json(); }
