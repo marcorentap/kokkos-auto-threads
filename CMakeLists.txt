@@ -14,7 +14,7 @@ target_compile_features(kokkosautothreads PRIVATE cxx_std_17)
 
 add_library(kokkosautothreads_lib SHARED LibKokkosAutoThreads.cpp)
 set_target_properties(kokkosautothreads_lib PROPERTIES OUTPUT_NAME kokkosautothreads)
-target_link_libraries(kokkosautothreads_lib PUBLIC mperfprofiler MPerf::MPerf)
+target_link_libraries(kokkosautothreads_lib PUBLIC MPerf::MPerf)
 
 install(TARGETS kokkosautothreads kokkosautothreads_lib)
 install(PROGRAMS 
