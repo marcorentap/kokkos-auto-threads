@@ -61,12 +61,6 @@ void Analyzer::ExportDB() {
         uint64_t numThreads = threadRun["num_threads"];
         std::string hookType = kernelLog["hook_type"];
         std::string kernelName = kernelLog["kernel_name"];
-        uint64_t execTime = kernelLog["time"];  // Follow MPerf's naming
-        uint64_t hwCacheMisses = kernelLog["hw_cache_misses"];
-        uint64_t hwCacheRefs = kernelLog["hw_cache_references"];
-        uint64_t swPgFault = kernelLog["sw_page_faults"];
-        uint64_t swPgFaultMin = kernelLog["sw_page_faults_min"];
-        uint64_t swPgFaultMaj = kernelLog["sw_page_faults_maj"];
 
         // Get measurements
         for (auto &label : labelList) {
