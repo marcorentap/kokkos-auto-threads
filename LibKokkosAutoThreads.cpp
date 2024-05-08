@@ -52,9 +52,7 @@ inline void checkOpenFds(measureType &measure, int expected) {
   using linuxMeasureType = MPerf::Tracers::LinuxPerf::Measure;
   auto asLinuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
   if (asLinuxMeasure->GetOpenFDCount() != expected) {
-    errx(EXIT_FAILURE,
-         "Cannot open perf events, consider checking "
-         "/proc/sys/kernel/perf_event_paranoid");
+    errx(EXIT_FAILURE, "Cannot open perf events");
   }
 }
 
@@ -64,24 +62,36 @@ extern "C" void kokkosp_init_library(const int loadSeq,
                                      void *deviceInfo) {
   // Create and register measures
   auto timeMeasure = chronoTracer.MakeMeasure(HLMType::Time);
-  auto hwCacheMeasure = linuxTracer.MakeMeasure({
-      HLMType::HWCacheReferences,
-      HLMType::HWCacheMisses,
+  // auto hwCacheMeasure = linuxTracer.MakeMeasure({
+  //     HLMType::HWCacheReferences,
+  //     HLMType::HWCacheMisses,
+  // });
+  // auto pgFaultMeasure = linuxTracer.MakeMeasure({
+  //     HLMType::SWPageFaults,
+  //     HLMType::SWPageFaultsMaj,
+  //     HLMType::SWPageFaultsMin,
+  // });
+  auto clockInstMeasure = linuxTracer.MakeMeasure({
+      HLMType::HWInstructions,
+      HLMType::HWCPUCycles,
   });
-  auto pgFaultMeasure = linuxTracer.MakeMeasure({
-      HLMType::SWPageFaults,
-      HLMType::SWPageFaultsMaj,
-      HLMType::SWPageFaultsMin,
+  auto l1dCacheMeasure = linuxTracer.MakeMeasure({
+      HLMType::HWCacheL1DReadAccess,
+      HLMType::HWCacheL1DWriteAccess,
   });
 
   // All perf event must be successful
-  checkOpenFds(hwCacheMeasure, 2);
-  checkOpenFds(pgFaultMeasure, 3);
+  // checkOpenFds(hwCacheMeasure, 2);
+  // checkOpenFds(pgFaultMeasure, 3);
+  checkOpenFds(clockInstMeasure, 2);
+  checkOpenFds(l1dCacheMeasure, 2);
 
   // Register measure
   measures.push_back(std::move(timeMeasure));
-  measures.push_back(std::move(hwCacheMeasure));
-  measures.push_back(std::move(pgFaultMeasure));
+  // measures.push_back(std::move(hwCacheMeasure));
+  // measures.push_back(std::move(pgFaultMeasure));
+  measures.push_back(std::move(clockInstMeasure));
+  measures.push_back(std::move(l1dCacheMeasure));
 
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "library";
@@ -100,7 +110,8 @@ extern "C" void kokkosp_finalize_library() {
     json delta;
     for (auto tickItem : tick.items()) {
       auto key = tickItem.key();
-      if (key == "kernel_name" || key == "hook_type") continue;
+      if (key == "kernel_name" || key == "hook_type")
+        continue;
 
       auto diff = JsonDiff<uint64_t>(tick, tock, key);
       delta[key] = diff;
@@ -116,7 +127,8 @@ extern "C" void kokkosp_finalize_library() {
   json libDelta;
   for (auto tickItem : libraryTick.items()) {
     auto key = tickItem.key();
-    if (key == "kernel_name" || key == "hook_type") continue;
+    if (key == "kernel_name" || key == "hook_type")
+      continue;
 
     auto diff = JsonDiff<uint64_t>(libraryTick, libraryTock, key);
     libDelta[key] = diff;

@@ -22,7 +22,7 @@ class Executor {
   using json = nlohmann::json;
   using HLMType = MPerf::HLMeasureType;
 
- private:
+private:
   static constexpr int EXEC_ARG_LEN = 1024;
   int schedPolicy = SCHED_FIFO;
 
@@ -42,14 +42,18 @@ class Executor {
   json ExecProgram(int numThreads);
   json ExecRun(int maxTheads);
 
- public:
+public:
   constexpr static HLMType HLMTypes[] = {
       HLMType::Time,
-      HLMType::HWCacheReferences,
-      HLMType::HWCacheMisses,
-      HLMType::SWPageFaults,
-      HLMType::SWPageFaultsMaj,
-      HLMType::SWPageFaultsMin,
+      HLMType::HWInstructions,
+      HLMType::HWCPUCycles,
+      HLMType::HWCacheL1DReadAccess,
+      HLMType::HWCacheL1DWriteAccess,
+      // HLMType::HWCacheReferences,
+      // HLMType::HWCacheMisses,
+      // HLMType::SWPageFaults,
+      // HLMType::SWPageFaultsMaj,
+      // HLMType::SWPageFaultsMin,
   };
   Executor(int argc, char *argv[]);
   json Exec(int numRuns);
@@ -59,15 +63,15 @@ class Executor {
 class Analyzer {
   using json = nlohmann::json;
 
- private:
+private:
   json data;
 
- public:
+public:
   Analyzer(json data);
   json Summarize();
   void ExportDB();
 };
 
-}  // namespace KokkosAutoThreads
+} // namespace KokkosAutoThreads
 
 #endif

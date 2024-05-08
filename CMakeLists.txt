@@ -21,4 +21,5 @@ install(PROGRAMS
   analyzers/kat-average
   analyzers/kat-plotter
   analyzers/kat-sort
+  analyzers/kat-mem-inst
 DESTINATION bin)

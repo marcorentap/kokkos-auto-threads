@@ -10,7 +10,6 @@ results = results[results["hook_type"] != "library"]
 kernel_names = results["kernel_name"].unique()
 max_num_threads = max(results["num_threads"])
 measure_names = results.columns.to_list()
-measure_names.remove("kernel_id")
 measure_names.remove("run_id")
 measure_names.remove("hook_type")
 measure_names.remove("kernel_name")
@@ -22,7 +21,6 @@ average_columns.extend(measure_names)
 for kernel_name in kernel_names:
     kernel_df = results[results["kernel_name"] == kernel_name]
     kernel_df = kernel_df.drop("kernel_name", axis=1)
-    kernel_df = kernel_df.drop("kernel_id", axis=1)
     kernel_df = kernel_df.drop("run_id", axis=1)
     kernel_df = kernel_df.drop("hook_type", axis=1)
     for num_threads in range(1, max_num_threads+1):

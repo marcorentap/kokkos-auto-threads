@@ -14,7 +14,7 @@ axs = []
 n_kernels = len(kernel_names)
 n_measures = len(measure_names)
 fig = plt.figure()
-plt.subplots(n_kernels, n_measures, figsize=(2*n_kernels,10*n_measures))
+plt.subplots(n_kernels, n_measures, figsize=(6*n_measures, 2*n_kernels))
 
 for i, kernel_name in enumerate(kernel_names):
     for j, measure_name in enumerate(measure_names):
