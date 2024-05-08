@@ -1,11 +1,12 @@
 #ifndef KOKKOSAUTOTHREADS_HPP
 #define KOKKOSAUTOTHREADS_HPP
+#include <sched.h>
 #include <sqlite3.h>
 
+#include <MPerf/Core.hpp>
 #include <array>
 #include <fstream>
 #include <string>
-#include <sched.h>
 
 #include "json.hpp"
 
@@ -19,6 +20,7 @@ static std::string dbName = "kokkosautothreads.db";
 
 class Executor {
   using json = nlohmann::json;
+  using HLMType = MPerf::HLMeasureType;
 
  private:
   static constexpr int EXEC_ARG_LEN = 1024;
@@ -41,6 +43,14 @@ class Executor {
   json ExecRun(int maxTheads);
 
  public:
+  constexpr static HLMType HLMTypes[] = {
+      HLMType::Time,
+      HLMType::HWCacheReferences,
+      HLMType::HWCacheMisses,
+      HLMType::SWPageFaults,
+      HLMType::SWPageFaultsMaj,
+      HLMType::SWPageFaultsMin,
+  };
   Executor(int argc, char *argv[]);
   json Exec(int numRuns);
   json Exec(int numRuns, int maxThreads);
