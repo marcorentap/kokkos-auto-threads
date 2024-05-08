@@ -22,8 +22,9 @@ chronoTracerType chronoTracer;
 
 // List of measure (tick, tock) pair
 std::vector<measureType> measures;
-std::vector<json> kernelTicks, libraryTicks;
-std::vector<json> kernelTocks, libraryTocks;
+std::vector<json> kernelTicks;
+std::vector<json> kernelTocks;
+json libraryTick, libraryTock;
 
 template <class T>
 inline T JsonDiff(json tick, json tock, std::string fieldName) {
@@ -84,13 +85,13 @@ extern "C" void kokkosp_init_library(const int loadSeq,
 
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "library";
-  libraryTicks.push_back(j);
+  libraryTick = j;
 }
 
 extern "C" void kokkosp_finalize_library() {
   json outputJson;
   auto j = GetCurrentMeasurements();
-  libraryTocks.push_back(j);
+  libraryTock = j;
 
   // Calculate kernel deltas
   for (int i = 0; i < kernelTicks.size(); i++) {
@@ -112,6 +113,20 @@ extern "C" void kokkosp_finalize_library() {
   }
 
   // Calculate library deltas
+  json libDelta;
+  for (auto tickItem : libraryTick.items()) {
+    auto key = tickItem.key();
+    if (key == "kernel_name" || key == "hook_type") continue;
+
+    auto diff = JsonDiff<uint64_t>(libraryTick, libraryTock, key);
+    libDelta[key] = diff;
+  }
+  libDelta.update({
+      {"kernel_name", ""},
+      {"hook_type", "library"},
+  });
+  outputJson.push_back(libDelta);
+
   outputFile << outputJson << std::endl;
 }
 
