@@ -12,6 +12,7 @@ using HLMType = MPerf::HLMeasureType;
 
 auto logName = KokkosAutoThreads::progLogName;
 auto outputFile = std::ofstream(logName);
+constexpr int perKernelMaxLogCount = 20;
 
 // Measurements
 using linuxTracerType = MPerf::Tracers::LinuxPerf::Tracer;
@@ -25,6 +26,7 @@ std::vector<measureType> measures;
 std::vector<json> kernelTicks;
 std::vector<json> kernelTocks;
 json libraryTick, libraryTock;
+std::map<std::string, int> kernelMeasurementCounts;
 
 template <class T>
 inline T JsonDiff(json tick, json tock, std::string fieldName) {
@@ -46,6 +48,25 @@ json GetCurrentMeasurements() {
     j.update(measureJson);
   }
   return j;
+}
+
+void PushMeasurements(json &j, std::vector<json> &dest) {
+  auto name = j["kernel_name"];
+  auto count = kernelMeasurementCounts.at(name);
+
+  if (count > perKernelMaxLogCount) return;
+  dest.push_back(j);
+}
+
+void UpdateKernelCount(std::string kernelName) {
+  auto count = 0;
+  try {
+    count = kernelMeasurementCounts.at(kernelName);
+  } catch (std::out_of_range e) {
+    // Do nothing
+  }
+
+  kernelMeasurementCounts[kernelName] = count + 1;
 }
 
 inline void checkOpenFds(measureType &measure, int expected) {
@@ -110,8 +131,7 @@ extern "C" void kokkosp_finalize_library() {
     json delta;
     for (auto tickItem : tick.items()) {
       auto key = tickItem.key();
-      if (key == "kernel_name" || key == "hook_type")
-        continue;
+      if (key == "kernel_name" || key == "hook_type") continue;
 
       auto diff = JsonDiff<uint64_t>(tick, tock, key);
       delta[key] = diff;
@@ -127,8 +147,7 @@ extern "C" void kokkosp_finalize_library() {
   json libDelta;
   for (auto tickItem : libraryTick.items()) {
     auto key = tickItem.key();
-    if (key == "kernel_name" || key == "hook_type")
-      continue;
+    if (key == "kernel_name" || key == "hook_type") continue;
 
     auto diff = JsonDiff<uint64_t>(libraryTick, libraryTock, key);
     libDelta[key] = diff;
@@ -148,7 +167,8 @@ extern "C" void kokkosp_begin_parallel_for(const char *name,
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "parallel_for";
   j["kernel_name"] = name;
-  kernelTicks.push_back(j);
+  UpdateKernelCount(name);
+  PushMeasurements(j, kernelTicks);
 }
 
 extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
@@ -156,7 +176,7 @@ extern "C" void kokkosp_end_parallel_for(const uint64_t kID) {
   auto cur = kernelTicks.back();
   j["hook_type"] = cur["hook_type"];
   j["kernel_name"] = cur["kernel_name"];
-  kernelTocks.push_back(j);
+  PushMeasurements(j, kernelTocks);
 }
 
 extern "C" void kokkosp_begin_parallel_scan(const char *name,
@@ -164,7 +184,8 @@ extern "C" void kokkosp_begin_parallel_scan(const char *name,
                                             uint64_t *kID) {
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "parallel_scan";
-  kernelTicks.push_back(j);
+  UpdateKernelCount(name);
+  PushMeasurements(j, kernelTicks);
 }
 
 extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
@@ -172,7 +193,7 @@ extern "C" void kokkosp_end_parallel_scan(const uint64_t kID) {
   auto cur = kernelTicks.back();
   j["hook_type"] = cur["hook_type"];
   j["kernel_name"] = cur["kernel_name"];
-  kernelTocks.push_back(j);
+  PushMeasurements(j, kernelTocks);
 }
 
 extern "C" void kokkosp_begin_parallel_reduce(const char *name,
@@ -180,7 +201,8 @@ extern "C" void kokkosp_begin_parallel_reduce(const char *name,
                                               uint64_t *kID) {
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "parallel_reduce";
-  kernelTicks.push_back(j);
+  UpdateKernelCount(name);
+  PushMeasurements(j, kernelTicks);
 }
 
 extern "C" void kokkosp_end_parallel_reduce(const uint64_t kID) {
@@ -188,5 +210,5 @@ extern "C" void kokkosp_end_parallel_reduce(const uint64_t kID) {
   auto cur = kernelTicks.back();
   j["hook_type"] = cur["hook_type"];
   j["kernel_name"] = cur["kernel_name"];
-  kernelTocks.push_back(j);
+  PushMeasurements(j, kernelTocks);
 }
