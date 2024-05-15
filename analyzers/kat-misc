@@ -5,4 +5,5 @@ import sys
 results = pd.read_csv(sys.stdin)
 results["hw_mem_instructions"] = results["hw_cache_l1d_read_access"] + results["hw_cache_l1d_write_access"]
 results["hw_mem_inst_ratio"] = results["hw_mem_instructions"]/results["hw_instructions"]
+results["cpi"] = results["hw_cpu_cycles"]/results["hw_instructions"]
 print(results.to_csv(index=False, index_label=False));
