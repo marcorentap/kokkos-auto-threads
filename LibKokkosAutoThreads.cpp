@@ -78,7 +78,7 @@ void UpdateKernelCount(std::string kernelName) {
 void ResetLinuxMeasures() {
   for (auto &measure : measures) {
     auto linuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
-    if (linuxMeasure) linuxMeasure->ResetCounters();
+    if (linuxMeasure) linuxMeasure->Reset();
   }
 }
 
