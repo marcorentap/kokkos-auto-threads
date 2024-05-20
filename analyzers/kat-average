@@ -31,18 +31,16 @@ for kernel_name in kernel_names:
 
         row = [kernel_name, num_threads]
 
-        # Remove outliers
         measures = []
         for measure_name in measure_names:
             measure_df = thread_df[measure_name]
-            q_high = measure_df.quantile(0.99)
-            q_low = measure_df.quantile(0.01)
-            measure_df_clean = measure_df[(measure_df > q_low) & (measure_df < q_high)]
-            # print(f"measure {measure_name}:\n{measure_df_clean}")
-            row.append(measure_df_clean.mean())
-
-            # df[measure_name] = df[measure]
-
+            row.append(measure_df.mean())
+            # Remove outliers
+            # q_high = measure_df.quantile(0.99)
+            # q_low = measure_df.quantile(0.01)
+            # if q_high != q_low:
+            #     measure_df_clean = measure_df[(measure_df > q_low) & (measure_df < q_high)]
+            #     row.append(measure_df_clean.mean())
 
         averages.append(row)
 
