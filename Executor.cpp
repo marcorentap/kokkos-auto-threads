@@ -31,7 +31,7 @@ Exec::Executor(int argc, char *argv[]) {
 
   // Point an exec arg to --kokkos-tools-libs in execArgs
   auto libArg = execArgs[execArgsType::TOOLS_LIBS];
-  this->argv[argc - 1] = libArg;
+  this->argv[argc + 1] = libArg;
 
   // Set --kokkos-tools-libs argument
   this->libPath = GetFullLibPath();
