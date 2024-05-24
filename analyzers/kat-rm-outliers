@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import pandas as pd
+import sys
+
+results = pd.read_csv(sys.stdin)
+
+# Only keep num_threads,kernel_name and performance measures
+results = results[results["hook_type"] != "library"]
+
+kernel_names = results["kernel_name"].unique()
+max_num_threads = max(results["num_threads"])
+measure_names = results.columns.to_list()
+measure_names.remove("run_id")
+measure_names.remove("hook_type")
+measure_names.remove("kernel_name")
+measure_names.remove("num_threads")
+
+outputs = []
+
+for kernel_name in kernel_names:
+    kernel_df = results[results["kernel_name"] == kernel_name]
+    for num_threads in range(1, max_num_threads+1):
+        thread_df = kernel_df[kernel_df["num_threads"] == num_threads]
+
+        # Ignore empty thread data
+        if thread_df.empty:
+            continue
+
+        # Calculate measure quartiles of each kernel_name, num_threads
+        qs = {}
+        for measure_name in measure_names:
+            measure_df = thread_df[measure_name]
+            q1 = measure_df.quantile(0.25)
+            q3 = measure_df.quantile(0.75)
+            qs[measure_name] = (q1, q3)
+
+        # Get rows indexes to remove
+        for i, row in thread_df.iterrows():
+            for measure_name in measure_names:
+                q1, q3 = qs[measure_name]
+                iqr = q3 - q1
+                measure = row[measure_name]
+                if measure < q1 - 1.5*iqr or measure > q3 + 1.5*iqr:
+                    continue
+                outputs.append(row)
+
+
+outputs_df = pd.DataFrame(outputs, columns=results.columns.to_list())
+print(outputs_df.to_csv(index=False, index_label=False))

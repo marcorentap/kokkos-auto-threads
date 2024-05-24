@@ -22,4 +22,5 @@ install(PROGRAMS
   analyzers/kat-plotter
   analyzers/kat-sort
   analyzers/kat-misc
+  analyzers/kat-rm-outliers
 DESTINATION bin)
