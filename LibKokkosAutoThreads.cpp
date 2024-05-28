@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "KokkosAutoThreads.hpp"
+#include "MPerf/Core.hpp"
 
 using json = nlohmann::json;
 using HLMType = MPerf::HLMeasureType;
@@ -63,7 +64,8 @@ void PushMeasurements(json &j, std::vector<json> &dest) {
   std::string name = j["kernel_name"];
   int count = kernelMeasurementCounts.at(name);
 
-  if (count > perKernelMaxLogCount) return;
+  if (count > perKernelMaxLogCount)
+    return;
   dest.push_back(j);
 }
 
@@ -81,7 +83,8 @@ void UpdateKernelCount(std::string kernelName) {
 void ResetLinuxMeasures() {
   for (auto &measure : measures) {
     auto linuxMeasure = dynamic_cast<linuxMeasureType *>(measure.get());
-    if (linuxMeasure) linuxMeasure->Reset();
+    if (linuxMeasure)
+      linuxMeasure->Reset();
   }
 }
 
@@ -99,38 +102,32 @@ extern "C" void kokkosp_init_library(const int loadSeq,
                                      void *deviceInfo) {
   // Create and register measures
   auto timeMeasure = chronoTracer.MakeMeasure(HLMType::Time);
-  // auto hwCacheMeasure = linuxTracer.MakeMeasure({
-  //     HLMType::HWCacheReferences,
-  //     HLMType::HWCacheMisses,
-  // });
-  // auto pgFaultMeasure = linuxTracer.MakeMeasure({
-  //     HLMType::SWPageFaults,
-  //     HLMType::SWPageFaultsMaj,
-  //     HLMType::SWPageFaultsMin,
-  // });
-  auto clockInstMeasure = linuxTracer.MakeMeasure({
+  auto cpuEvents = std::vector({
       HLMType::HWInstructions,
       HLMType::HWCPUCycles,
   });
-  auto l1dCacheMeasure = linuxTracer.MakeMeasure({
+
+  auto cacheEvents = std::vector({
       HLMType::HWCacheL1DReadAccess,
+      HLMType::HWCacheL1DReadMiss,
       HLMType::HWCacheL1DWriteAccess,
+      HLMType::HWCacheL1DWriteMiss,
+      HLMType::HWCacheLLReadAccess,
+      HLMType::HWCacheLLReadMiss,
   });
   auto stallMeasure = pfmTracer.MakeMeasure(HLMType::HWCycleStallsTotal);
+  auto l1dCacheMeasure = linuxTracer.MakeMeasure(cacheEvents);
+  auto cpuMeasure = linuxTracer.MakeMeasure(cpuEvents);
 
   // All perf event must be successful
-  // checkOpenFds(hwCacheMeasure, 2);
-  // checkOpenFds(pgFaultMeasure, 3);
-  checkOpenFds(clockInstMeasure, 2);
-  checkOpenFds(l1dCacheMeasure, 2);
+  checkOpenFds(l1dCacheMeasure, cacheEvents.size());
+  checkOpenFds(cpuMeasure, cpuEvents.size());
 
   // Register measure
   measures.push_back(std::move(timeMeasure));
-  // measures.push_back(std::move(hwCacheMeasure));
-  // measures.push_back(std::move(pgFaultMeasure));
-  measures.push_back(std::move(clockInstMeasure));
   measures.push_back(std::move(l1dCacheMeasure));
   measures.push_back(std::move(stallMeasure));
+  measures.push_back(std::move(cpuMeasure));
 
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "library";
@@ -149,7 +146,8 @@ extern "C" void kokkosp_finalize_library() {
     json delta;
     for (auto tickItem : tick.items()) {
       auto key = tickItem.key();
-      if (key == "kernel_name" || key == "hook_type") continue;
+      if (key == "kernel_name" || key == "hook_type")
+        continue;
 
       uint64_t diff = JsonDiff<uint64_t>(tick, tock, key);
       diff = JsonDiff<uint64_t>(tick, tock, key);
@@ -166,7 +164,8 @@ extern "C" void kokkosp_finalize_library() {
   json libDelta;
   for (auto tickItem : libraryTick.items()) {
     auto key = tickItem.key();
-    if (key == "kernel_name" || key == "hook_type") continue;
+    if (key == "kernel_name" || key == "hook_type")
+      continue;
 
     uint64_t diff = JsonDiff<uint64_t>(libraryTick, libraryTock, key);
     libDelta[key] = diff;
