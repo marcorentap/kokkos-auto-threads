@@ -48,12 +48,11 @@ public:
       HLMType::HWInstructions,
       HLMType::HWCPUCycles,
       HLMType::HWCacheL1DReadAccess,
+      HLMType::HWCacheL1DReadMiss,
       HLMType::HWCacheL1DWriteAccess,
-      // HLMType::HWCacheReferences,
-      // HLMType::HWCacheMisses,
-      // HLMType::SWPageFaults,
-      // HLMType::SWPageFaultsMaj,
-      // HLMType::SWPageFaultsMin,
+      HLMType::HWCacheL1DWriteMiss,
+      HLMType::HWCacheLLReadAccess,
+      HLMType::HWCacheLLReadMiss,
   };
   Executor(int argc, char *argv[]);
   json Exec(int numRuns);
