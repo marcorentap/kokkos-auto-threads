@@ -2,6 +2,7 @@
 
 #include <MPerf/Tracers/CPPChrono.hpp>
 #include <MPerf/Tracers/LinuxPerf.hpp>
+#include <MPerf/Tracers/LibPFM4.hpp>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -19,9 +20,11 @@ constexpr int perKernelMaxLogCount = 20;
 using linuxTracerType = MPerf::Tracers::LinuxPerf::Tracer;
 using linuxMeasureType = MPerf::Tracers::LinuxPerf::Measure;
 using chronoTracerType = MPerf::Tracers::CPPChrono::Tracer;
+using pfmTracerType = MPerf::Tracers::LibPFM4::Tracer;
 using measureType = std::unique_ptr<MPerf::Measure>;
 linuxTracerType linuxTracer;
 chronoTracerType chronoTracer;
+pfmTracerType pfmTracer;
 
 // List of measure (tick, tock) pair
 std::vector<measureType> measures;
@@ -113,6 +116,7 @@ extern "C" void kokkosp_init_library(const int loadSeq,
       HLMType::HWCacheL1DReadAccess,
       HLMType::HWCacheL1DWriteAccess,
   });
+  auto stallMeasure = pfmTracer.MakeMeasure(HLMType::HWCycleStallsTotal);
 
   // All perf event must be successful
   // checkOpenFds(hwCacheMeasure, 2);
@@ -126,6 +130,7 @@ extern "C" void kokkosp_init_library(const int loadSeq,
   // measures.push_back(std::move(pgFaultMeasure));
   measures.push_back(std::move(clockInstMeasure));
   measures.push_back(std::move(l1dCacheMeasure));
+  measures.push_back(std::move(stallMeasure));
 
   auto j = GetCurrentMeasurements();
   j["hook_type"] = "library";

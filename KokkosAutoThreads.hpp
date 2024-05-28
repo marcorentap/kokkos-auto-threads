@@ -49,6 +49,7 @@ public:
       HLMType::HWCPUCycles,
       HLMType::HWCacheL1DReadAccess,
       HLMType::HWCacheL1DWriteAccess,
+      HLMType::HWCycleStallsTotal,
       // HLMType::HWCacheReferences,
       // HLMType::HWCacheMisses,
       // HLMType::SWPageFaults,
