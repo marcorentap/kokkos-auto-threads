@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 
   auto exec = KokkosAutoThreads::Executor(argc, argv);
 
-  auto result = exec.Exec(10);
+  auto result = exec.Exec(4);
   auto analyzer = KokkosAutoThreads::Analyzer(result);
   auto summary = analyzer.Summarize();
   std::ofstream(KokkosAutoThreads::summaryName) << summary.dump(2);
